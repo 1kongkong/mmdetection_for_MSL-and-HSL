@@ -11,6 +11,8 @@ from .scannet_dataset import (ScanNetDataset, ScanNetInstanceSegDataset,
 from .seg3d_dataset import Seg3DDataset
 from .semantickitti_dataset import SemanticKittiDataset
 from .sunrgbd_dataset import SUNRGBDDataset
+from .titan_dataset import TitanSegDataset
+from .hsl_dataset import HSLSegDataset
 # yapf: disable
 from .transforms import (AffineResize, BackgroundPointsFilter, GlobalAlignment,
                          GlobalRotScaleTrans, IndoorPatchPointSample,
@@ -29,7 +31,7 @@ __all__ = [
     'KittiDataset', 'CBGSDataset', 'NuScenesDataset', 'LyftDataset',
     'ObjectSample', 'RandomFlip3D', 'ObjectNoise', 'GlobalRotScaleTrans',
     'PointShuffle', 'ObjectRangeFilter', 'PointsRangeFilter',
-    'LoadPointsFromFile', 'S3DISSegDataset', 'S3DISDataset',
+    'LoadPointsFromFile', 'S3DISSegDataset', 'S3DISDataset', 'TitanSegDataset', 'HSLSegDataset',
     'NormalizePointsColor', 'IndoorPatchPointSample', 'IndoorPointSample',
     'PointSample', 'LoadAnnotations3D', 'GlobalAlignment', 'SUNRGBDDataset',
     'ScanNetDataset', 'ScanNetSegDataset', 'ScanNetInstanceSegDataset',

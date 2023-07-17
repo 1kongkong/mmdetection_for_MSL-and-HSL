@@ -1,33 +1,21 @@
-# For S3DIS seg we usually do 13-class segmentation
-class_names = ('ceiling', 'floor', 'wall', 'beam', 'column', 'window', 'door',
-               'table', 'chair', 'sofa', 'bookcase', 'board', 'clutter')
+# For Titan seg we usually do 13-class segmentation
+class_names = ('Impervious Ground', 'Gress', 'Building', 'Tree', 'Car', 'Power Line', 'Bare land')
 metainfo = dict(classes=class_names)
-dataset_type = 'S3DISSegDataset'
-data_root = 'data/mmdetection3d_data/s3dis/'
+dataset_type = 'TitanSegDataset'
+data_root = 'data/Titan/'
 input_modality = dict(use_lidar=True, use_camera=False)
 data_prefix = dict(
     pts='points',
-    pts_instance_mask='instance_mask',
     pts_semantic_mask='semantic_mask')
 
-# Example to use different file client
-# Method 1: simply set the data root and let the file I/O module
-# automatically infer from prefix (not support LMDB and Memcache yet)
-
-# data_root = 's3://openmmlab/datasets/detection3d/s3dis/'
-
-# Method 2: Use backend_args, file_client_args in versions before 1.1.0
-# backend_args = dict(
-#     backend='petrel',
-#     path_mapping=dict({
-#         './data/': 's3://openmmlab/datasets/detection3d/',
-#          'data/': 's3://openmmlab/datasets/detection3d/'
-#      }))
 backend_args = None
 
-num_points = 4096
-train_area = [1, 2, 3, 4, 6]
-test_area = 5
+num_points = 50000
+block_size = 75
+# train_area = list(range(1,33))
+test_area = [2, 7, 12, 14, 18, 21, 24, 27]
+train_area = [x for x in range(1, 33) if x not in test_area]
+
 train_pipeline = [
     dict(
         type='LoadPointsFromFile',
@@ -48,12 +36,12 @@ train_pipeline = [
     dict(
         type='IndoorPatchPointSample',
         num_points=num_points,
-        block_size=1.0,
+        block_size=block_size,
         ignore_index=len(class_names),
         use_normalized_coord=True,
         enlarge_size=0.2,
         min_unique_num=None),
-    dict(type='NormalizePointsColor', color_mean=None),
+    # dict(type='NormalizePointsColor', color_mean=None),
     dict(type='Pack3DDetInputs', keys=['points', 'pts_semantic_mask'])
 ]
 test_pipeline = [
@@ -72,9 +60,10 @@ test_pipeline = [
         with_mask_3d=False,
         with_seg_3d=True,
         backend_args=backend_args),
-    dict(type='NormalizePointsColor', color_mean=None),
+    # dict(type='NormalizePointsColor', color_mean=None),
     dict(type='Pack3DDetInputs', keys=['points'])
 ]
+
 # construct a pipeline for data and gt loading in show function
 # please keep its loading function consistent with test_pipeline (e.g. client)
 # we need to load gt seg_mask!
@@ -90,6 +79,7 @@ eval_pipeline = [
     dict(type='NormalizePointsColor', color_mean=None),
     dict(type='Pack3DDetInputs', keys=['points'])
 ]
+
 tta_pipeline = [
     dict(
         type='LoadPointsFromFile',
@@ -121,21 +111,21 @@ tta_pipeline = [
 # train on area 1, 2, 3, 4, 6
 # test on area 5
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=4,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_files=[f's3dis_infos_Area_{i}.pkl' for i in train_area],
+        ann_files=[f'titan_infos_area_{i}.pkl' for i in train_area],
         metainfo=metainfo,
         data_prefix=data_prefix,
         pipeline=train_pipeline,
         modality=input_modality,
         ignore_index=len(class_names),
         scene_idxs=[
-            f'seg_info/Area_{i}_resampled_scene_idxs.npy' for i in train_area
+            f'seg_info/area_{i}_resampled_scene_idxs.npy' for i in train_area
         ],
         test_mode=False,
         backend_args=backend_args))
@@ -148,13 +138,15 @@ test_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_files=f's3dis_infos_Area_{test_area}.pkl',
+        ann_files=[f'titan_infos_area_{i}.pkl' for i in test_area],
         metainfo=metainfo,
         data_prefix=data_prefix,
         pipeline=test_pipeline,
         modality=input_modality,
         ignore_index=len(class_names),
-        scene_idxs=f'seg_info/Area_{test_area}_resampled_scene_idxs.npy',
+        scene_idxs=[
+            f'seg_info/area_{i}_resampled_scene_idxs.npy' for i in test_area
+        ],
         test_mode=True,
         backend_args=backend_args))
 val_dataloader = test_dataloader

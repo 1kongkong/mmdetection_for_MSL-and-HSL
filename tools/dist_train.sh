@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-
-CONFIG=$1
-GPUS=$2
+cd /home/bisifu/bsf/code/mmdetection3d/
+# CONFIG=configs/pointnet2/pointnet2_msg_2xb16-cosine-80e_s3dis-seg.py
+# CONFIG=configs/kpfcnn/kpfcnn_2xb16-cosine-80e_s3dis-seg.py
+# CONFIG=configs/kpfcnn/kpfcnn_2xb16-cosine-80e_titan-seg.py
+# CONFIG=configs/pointnet2/pointnet2_msg_2xb16-cosine-80e_titan-seg.py
+CONFIG=configs/pointnet2/pointnet2_msg_2xb16-cosine-80e_hsl-seg.py
+GPUS=1
 NNODES=${NNODES:-1}
 NODE_RANK=${NODE_RANK:-0}
 PORT=${PORT:-29500}

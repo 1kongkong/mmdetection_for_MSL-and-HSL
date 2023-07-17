@@ -3,6 +3,7 @@ import argparse
 from os import path as osp
 
 from tools.dataset_converters import indoor_converter as indoor
+from tools.dataset_converters import outdoor_converter as outdoor
 from tools.dataset_converters import kitti_converter as kitti
 from tools.dataset_converters import lyft_converter as lyft_converter
 from tools.dataset_converters import nuscenes_converter as nuscenes_converter
@@ -164,6 +165,38 @@ def sunrgbd_data_prep(root_path, info_prefix, out_dir, workers):
     info_val_path = osp.join(out_dir, f'{info_prefix}_infos_val.pkl')
     update_pkl_infos('sunrgbd', out_dir=out_dir, pkl_path=info_train_path)
     update_pkl_infos('sunrgbd', out_dir=out_dir, pkl_path=info_val_path)
+
+
+def titan_data_prep(root_path, info_prefix, out_dir):
+    """Prepare the info file for titan dataset.
+
+    Args:
+        root_path (str): Path of dataset root.
+        info_prefix (str): The prefix of info filenames.
+        out_dir (str): Output directory of the generated info file.
+    """
+    outdoor.create_outdoor_info_file(
+        root_path, info_prefix, out_dir)
+    splits = [f'area_{i}' for i in range(1, 33)]
+    for split in splits:
+        filename = osp.join(out_dir, f'{info_prefix}_infos_{split}.pkl')
+        update_pkl_infos('titan', out_dir=out_dir, pkl_path=filename)
+
+
+def hsl_data_prep(root_path, info_prefix, out_dir):
+    """Prepare the info file for hsl dataset.
+
+    Args:
+        root_path (str): Path of dataset root.
+        info_prefix (str): The prefix of info filenames.
+        out_dir (str): Output directory of the generated info file.
+    """
+    outdoor.create_outdoor_info_file(
+        root_path, info_prefix, out_dir)
+    splits = [f'area_{i}' for i in range(1, 3)]
+    for split in splits:
+        filename = osp.join(out_dir, f'{info_prefix}_infos_{split}.pkl')
+        update_pkl_infos('hsl', out_dir=out_dir, pkl_path=filename)
 
 
 def waymo_data_prep(root_path,
@@ -376,5 +409,17 @@ if __name__ == '__main__':
     elif args.dataset == 'semantickitti':
         semantickitti_data_prep(
             info_prefix=args.extra_tag, out_dir=args.out_dir)
+    elif args.dataset == 'titan':
+        titan_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag,
+            out_dir=args.out_dir,
+        )
+    elif args.dataset == 'hsl' or args.dataset == 'HSL':
+        hsl_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag,
+            out_dir=args.out_dir,
+        )
     else:
         raise NotImplementedError(f'Don\'t support {args.dataset} dataset.')

@@ -815,7 +815,7 @@ class Det3DLocalVisualizer(DetLocalVisualizer):
                        name: str,
                        data_input: dict,
                        data_sample: Optional[Det3DDataSample] = None,
-                       draw_gt: bool = True,
+                       draw_gt: bool = False,
                        draw_pred: bool = True,
                        show: bool = False,
                        wait_time: float = 0,

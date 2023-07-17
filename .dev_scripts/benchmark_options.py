@@ -6,6 +6,6 @@ third_part_libs = [
 ]
 default_floating_range = 0.5
 model_floating_ranges = {
-    'configs/pointpillars/pointpillars_hv_secfpn_sbn-all_16xb2-2x_waymoD5-3d-3class.py': # noqa
+    'configs/pointpillars/pointpillars_hv_secfpn_sbn-all_16xb2-2x_waymoD5-3d-3class.py':  # noqa
     0.7
 }

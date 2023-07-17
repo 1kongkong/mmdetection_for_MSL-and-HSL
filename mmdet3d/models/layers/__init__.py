@@ -20,6 +20,7 @@ from .torchsparse_block import (TorchSparseBasicBlock, TorchSparseBottleneck,
                                 TorchSparseConvModule)
 from .transformer import GroupFree3DMHA
 from .vote_module import VoteModule
+from .kpconv_modules import KPConv,KPConvBlock,KPResNetBlock,KPConvFPModule
 
 __all__ = [
     'VoteModule', 'GroupFree3DMHA', 'EdgeFusionModule', 'DGCNNFAModule',
@@ -32,5 +33,6 @@ __all__ = [
     'PointFPModule', 'PAConvSAModule', 'PAConvSAModuleMSG',
     'PAConvCUDASAModule', 'PAConvCUDASAModuleMSG', 'TorchSparseConvModule',
     'TorchSparseBasicBlock', 'TorchSparseBottleneck', 'MinkowskiConvModule',
-    'MinkowskiBasicBlock', 'MinkowskiBottleneck'
+    'MinkowskiBasicBlock', 'MinkowskiBottleneck',
+    'KPConv', 'KPConvBlock', 'KPResNetBlock', 'KPConvFPModule',
 ]

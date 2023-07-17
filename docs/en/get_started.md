@@ -125,6 +125,7 @@ To verify whether MMDetection3D is installed correctly, we provide some sample c
 
 ```shell
 mim download mmdet3d --config pointpillars_hv_secfpn_8xb6-160e_kitti-3d-car --dest .
+mim download mmdet3d --config pointnet2_msg_2xb16-cosine-250e_scannet-seg --dest .
 ```
 
 The downloading will take several seconds or more, depending on your network environment. When it is done, you will find two files `pointpillars_hv_secfpn_8xb6-160e_kitti-3d-car.py` and `hv_pointpillars_secfpn_6x8_160e_kitti-3d-car_20220331_134606-d42d15ed.pth` in your current folder.
@@ -135,6 +136,9 @@ Case a: If you install MMDetection3D from source, just run the following command
 
 ```shell
 python demo/pcd_demo.py demo/data/kitti/000008.bin pointpillars_hv_secfpn_8xb6-160e_kitti-3d-car.py hv_pointpillars_secfpn_6x8_160e_kitti-3d-car_20220331_134606-d42d15ed.pth --show
+python demo/pcd_demo.py demo/data/kitti/000008.bin pointpillars_hv_secfpn_8xb6-160e_kitti-3d-car.py hv_pointpillars_secfpn_6x8_160e_kitti-3d-car_20220331_134606-d42d15ed.pth --out-dir 'output_result'
+
+python demo/pcd_seg_demo.py demo/data/scannet/scene0000_00.bin pointnet2_msg_2xb16-cosine-250e_scannet-seg.py pointnet2_msg_16x2_cosine_250e_scannet_seg-3d-20class_20210514_144009-24477ab1.pth --out-dir output_result
 ```
 
 You will see a visualizer interface with point cloud, where bounding boxes are plotted on cars.
