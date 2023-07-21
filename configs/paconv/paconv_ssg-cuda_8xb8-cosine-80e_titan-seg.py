@@ -42,6 +42,7 @@ train_pipeline = [
 model = dict(
     backbone=dict(
         in_channels=9,
+        num_points=(12500, 3125, 780, 195),
     ),
     decode_head=dict(
         num_classes=7, ignore_index=7,
