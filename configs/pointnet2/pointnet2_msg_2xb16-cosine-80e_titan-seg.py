@@ -6,8 +6,8 @@ _base_ = [
 # dataset settings
 class_names = ('Impervious Ground', 'Gress', 'Building', 'Tree', 'Car', 'Power Line', 'Bare land')
 
-num_points = 4096
-block_size = 20
+num_points = 50000
+block_size = 75
 backend_args = None
 train_pipeline = [
     dict(
