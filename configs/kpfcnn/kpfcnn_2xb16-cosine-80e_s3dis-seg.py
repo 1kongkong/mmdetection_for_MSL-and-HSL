@@ -6,7 +6,7 @@ _base_ = [
 # dataset settings
 class_names = ('ceiling', 'floor', 'wall', 'beam', 'column', 'window', 'door',
                'table', 'chair', 'sofa', 'bookcase', 'board', 'clutter')
-num_points = 50000
+num_points = 4096
 train_pipeline = [
     dict(
         type='IndoorPatchPointSample',
@@ -23,13 +23,14 @@ train_pipeline = [
 model = dict(
     backbone=dict(
         in_channels=6,
+        sample_nums=(2048, 1024, 512, 256),
         weight_norm=True,
-        ),  # [rgb, normalized_xyz]
+    ),  # [rgb, normalized_xyz]
     decode_head=dict(
-        num_classes=13, 
+        num_classes=13,
         ignore_index=13,
         loss_decode=dict(class_weight=None)
-        ),  # S3DIS doesn't use class_weight
+    ),  # S3DIS doesn't use class_weight
     test_cfg=dict(
         num_points=num_points,
         block_size=1.0,
@@ -42,7 +43,7 @@ model = dict(
 train_dataloader = dict(
     batch_size=16,
     num_workers=8,
-    )
+)
 
 # runtime settings
 default_hooks = dict(checkpoint=dict(type='CheckpointHook', interval=2))
