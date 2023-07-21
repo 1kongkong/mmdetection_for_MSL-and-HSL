@@ -38,6 +38,9 @@ def main(args):
     result, data = inference_segmentor(model, args.pcd)
     points = data['inputs']['points']
     data_input = dict(points=points)
+    # import pdb
+    # pdb.set_trace()
+    # print(result.shape)
     # show the results
     visualizer.add_datasample(
         'result',

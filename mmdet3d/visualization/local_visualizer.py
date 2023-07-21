@@ -739,7 +739,12 @@ class Det3DLocalVisualizer(DetLocalVisualizer):
 
         pts_color = palette[pts_sem_seg]
         seg_color = np.concatenate([points[:, :3], pts_color], axis=1)
-
+        # import pdb
+        # pdb.set_trace()
+        # points = np.vstack([points[:, :3].T, pts_sem_seg]).T
+        # from tools.dataset_converters.ply import write_ply
+        # write_ply('/home/bisifu/bsf/code/mmdetection3d/work_dirs/pointnet2_msg_2xb16-cosine-80e_hsl-seg/pred1.ply',
+        #           points, ['x', 'y', 'z', 'class'])
         self.set_points(points, pcd_mode=2, vis_mode='add')
         self.draw_seg_mask(seg_color)
 
