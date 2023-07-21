@@ -4,13 +4,13 @@ model = dict(
     data_preprocessor=dict(type='Det3DDataPreprocessor'),
     backbone=dict(
         type='KPFCNNBackbone',
-        # num_point=50000,
-        num_point=4096,
+        num_point=50000,
+        # num_point=4096,
         in_channels=6,  # [xyz, rgb], should be modified with dataset
         kernel_size=15,
         k_neighbor=20,
-        # sample_nums=(12500, 3125, 780, 195),
-        sample_nums=(2048, 1024, 512, 256),
+        sample_nums=(12500, 3125, 780, 195),
+        # sample_nums=(2048, 1024, 512, 256),
         kpconv_channels=((32, 64, 64), (128, 128, 128), (256, 256, 256),
                          (512, 512, 512), (1024, 1024,)),
         weight_norm=False,
