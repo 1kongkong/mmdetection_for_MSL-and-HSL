@@ -38,7 +38,7 @@ class HSLData(object):
         print(f'Start process {path}')
         info = dict()
         pc_info = {
-            'num_features': 3,
+            'num_features': 43,
             'lidar_idx': f'{self.split}'
         }
         info['point_cloud'] = pc_info
@@ -47,8 +47,11 @@ class HSLData(object):
         mmengine.mkdir_or_exist(osp.join(self.root_dir, 'hsl_data'))
 
         cloud = read_ply(path)
-        point = np.vstack((cloud['x'], cloud['y'], cloud['z'])).astype(np.float32).T
-        label = cloud['label'].astype(np.int64)
+        tem_data = [cloud['x'], cloud['y'], cloud['z']]
+        for i in range(40):
+            tem_data.append(cloud[str(i+1)])
+        point = np.vstack(tem_data).astype(np.float32).T
+        label = cloud['class'].astype(np.int64)
         np.save(pts_filename, point)
         np.save(pts_semantic_mask_path, label)
         print(f'Finish process {path}')
@@ -93,8 +96,8 @@ class HSLSegData(object):
         self.split = split
         self.num_points = num_points
 
-        self.all_ids = np.arange(7)  # all possible ids
-        self.cat_ids = np.array([0, 1, 2, 3, 4, 5])  # used for seg task
+        self.all_ids = np.arange(10)  # all possible ids
+        self.cat_ids = np.array(list(range(0,10)))  # used for seg task
         self.ignore_index = len(self.cat_ids)
 
         self.cat_id2class = np.ones((self.all_ids.shape[0],), dtype=np.int64) * self.ignore_index

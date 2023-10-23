@@ -193,7 +193,7 @@ def hsl_data_prep(root_path, info_prefix, out_dir):
     """
     outdoor.create_outdoor_info_file(
         root_path, info_prefix, out_dir)
-    splits = [f'area_{i}' for i in range(1, 3)]
+    splits = [f'area_{i}' for i in range(1, 13)]
     for split in splits:
         filename = osp.join(out_dir, f'{info_prefix}_infos_{split}.pkl')
         update_pkl_infos('hsl', out_dir=out_dir, pkl_path=filename)

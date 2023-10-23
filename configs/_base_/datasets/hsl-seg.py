@@ -1,5 +1,5 @@
 # For HSL seg we usually do 13-class segmentation
-class_names = ('river', 'lake', 'tree1', 'tree2', 'farmland', 'building', 'unclass')
+class_names = ('Building', 'Road', 'Parking', 'Farmland', 'Cultivated_land', 'Dead_wood', 'Bare_land', 'Tree', 'Water', 'unclass')
 metainfo = dict(classes=class_names)
 dataset_type = 'HSLSegDataset'
 data_root = 'data/mmdetection3d_data/HSL'
@@ -12,8 +12,8 @@ backend_args = None
 
 num_points = 50000
 block_size = 75
-train_area = [1]
-test_area = [1]
+train_area = list(range(1,13))
+test_area = list(range(1,13))
 # train_area = [x for x in range(1, 2) if x not in test_area]
 
 train_pipeline = [
@@ -22,8 +22,8 @@ train_pipeline = [
         coord_type='DEPTH',
         shift_height=False,
         use_color=False,
-        load_dim=3,
-        use_dim=[0, 1, 2],
+        load_dim=43,
+        use_dim=list(range(43)),
         backend_args=backend_args),
     dict(
         type='LoadAnnotations3D',
@@ -50,8 +50,8 @@ test_pipeline = [
         coord_type='DEPTH',
         shift_height=False,
         use_color=False,
-        load_dim=3,
-        use_dim=[0, 1, 2],
+        load_dim=43,
+        use_dim=list(range(43)),
         backend_args=backend_args),
     dict(
         type='LoadAnnotations3D',
@@ -73,8 +73,8 @@ eval_pipeline = [
         coord_type='DEPTH',
         shift_height=False,
         use_color=False,
-        load_dim=3,
-        use_dim=[0, 1, 2],
+        load_dim=43,
+        use_dim=list(range(43)),
         backend_args=backend_args),
     # dict(type='NormalizePointsColor', color_mean=None),
     dict(type='Pack3DDetInputs', keys=['points'])
@@ -86,8 +86,8 @@ tta_pipeline = [
         coord_type='DEPTH',
         shift_height=False,
         use_color=False,
-        load_dim=3,
-        use_dim=[0, 1, 2],
+        load_dim=43,
+        use_dim=list(range(43)),
         backend_args=backend_args),
     dict(
         type='LoadAnnotations3D',

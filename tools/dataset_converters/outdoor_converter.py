@@ -48,7 +48,7 @@ def create_outdoor_info_file(data_path,
                 label_weight_func=lambda x: 1.0 / np.log(1.2 + x))
             seg_dataset.get_seg_infos()
     elif pkl_prefix == 'HSL' or pkl_prefix == 'hsl':
-        splits = [f'area_{i}' for i in range(1, 3)]
+        splits = [f'area_{i}' for i in range(1, 13)]
         for split in splits:
             dataset = HSLData(root_path=data_path, split=split)
             info = dataset.get_infos()

@@ -681,7 +681,7 @@ def update_hsl_infos(pkl_path, out_dir):
               f'the original data {pkl_path}.')
         time.sleep(5)
     # METAINFO = {'classes': ('Ground', 'Gress', 'Building', 'Tree', 'Road')}
-    METAINFO = {'classes': ('river', 'lake', 'tree1', 'tree2', 'farmland', 'building', 'unclass')}
+    METAINFO = {'classes': ('Building', 'Road', 'Parking', 'Farmland', 'Cultivated_land', 'Dead_wood', 'Bare_land', 'Tree', 'Water', 'unclass')}
     print(f'Reading from input file: {pkl_path}.')
     data_list = mmengine.load(pkl_path)
     print('Start updating:')
