@@ -7,6 +7,7 @@ _base_ = [
 
 # dataset settings
 class_names = (
+    "Water",
     "Building",
     "Road",
     "Parking",
@@ -15,7 +16,6 @@ class_names = (
     "Dead_wood",
     "Bare_land",
     "Tree",
-    "Water",
     "unclass",
 )
 
@@ -57,7 +57,10 @@ train_pipeline = [
 
 # model settings
 model = dict(
-    backbone=dict(in_channels=46),  # [xyz, 40 channel, normalized_xyz]
+    backbone=dict(
+        in_channels=46,
+        num_points=(12500, 3125, 780, 195),
+    ),  # [xyz, 40 channel, normalized_xyz]
     decode_head=dict(
         num_classes=9, ignore_index=9, loss_decode=dict(class_weight=None)
     ),  # doesn't use class_weight
