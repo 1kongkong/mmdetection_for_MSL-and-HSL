@@ -13,6 +13,7 @@ from .seg3d_dataset import Seg3DDataset
 class _HSLSegDataset(Seg3DDataset):
     METAINFO = {
         "classes": (
+            "Water",
             "Building",
             "Road",
             "Parking",
@@ -21,7 +22,6 @@ class _HSLSegDataset(Seg3DDataset):
             "Dead_wood",
             "Bare_land",
             "Tree",
-            "Water",
             "unclass",
         ),
         "seg_valid_class_ids": (0, 1, 2, 3, 4, 5, 6, 7, 8),
