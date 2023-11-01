@@ -1,6 +1,6 @@
 # For HSL seg we usually do 13-class segmentation
 class_names = (
-    "water",
+    "Water",
     "Building",
     "Road",
     "Parking",
