@@ -3,25 +3,20 @@ from argparse import ArgumentParser
 
 from mmdet3d.apis import inference_segmentor, init_model
 from mmdet3d.registry import VISUALIZERS
+from tools.dataset_converters.ply import write_ply
 
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('pcd', help='Point cloud file')
-    parser.add_argument('config', help='Config file')
-    parser.add_argument('checkpoint', help='Checkpoint file')
+    parser.add_argument("pcd", help="Point cloud file")
+    parser.add_argument("config", help="Config file")
+    parser.add_argument("checkpoint", help="Checkpoint file")
+    parser.add_argument("--device", default="cuda:0", help="Device used for inference")
+    parser.add_argument("--out-dir", type=str, default="demo", help="dir to save results")
+    parser.add_argument("--show", action="store_true", help="show online visualization results")
     parser.add_argument(
-        '--device', default='cuda:0', help='Device used for inference')
-    parser.add_argument(
-        '--out-dir', type=str, default='demo', help='dir to save results')
-    parser.add_argument(
-        '--show',
-        action='store_true',
-        help='show online visualization results')
-    parser.add_argument(
-        '--snapshot',
-        action='store_true',
-        help='whether to save online visualization results')
+        "--snapshot", action="store_true", help="whether to save online visualization results"
+    )
     args = parser.parse_args()
     return args
 
@@ -36,24 +31,27 @@ def main(args):
 
     # test a single point cloud sample
     result, data = inference_segmentor(model, args.pcd)
-    points = data['inputs']['points']
+    points = data["inputs"]["points"]
     data_input = dict(points=points)
-    # import pdb
-    # pdb.set_trace()
+    coord = points[:, :3].cpu().numpy().astype("float32")
+    pred = result.pred_pts_seg.values()[0].cpu().numpy().reshape(-1, 1).astype("int32")
+    write_ply(args.out_dir + ".ply", [coord, pred], ["x", "y", "z", "pred"])
+
     # print(result.shape)
     # show the results
-    visualizer.add_datasample(
-        'result',
-        data_input,
-        data_sample=result,
-        draw_gt=False,
-        draw_pred=True,
-        show=args.show,
-        wait_time=0,
-        out_file=args.out_dir,
-        vis_task='lidar_seg')
+    # visualizer.add_datasample(
+    #     "result",
+    #     data_input,
+    #     data_sample=result,
+    #     draw_gt=False,
+    #     draw_pred=True,
+    #     show=args.show,
+    #     wait_time=0,
+    #     out_file=args.out_dir,
+    #     vis_task="lidar_seg",
+    # )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = parse_args()
     main(args)
