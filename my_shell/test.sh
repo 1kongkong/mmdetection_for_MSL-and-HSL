@@ -1,14 +1,28 @@
 cd /home/bisifu/bsf/code/mmdetection3d
 
 pcd_path=data/Titan/points
-config=configs/kpfcnn/kpfcnn_2xb16-cosine-80e_titan-seg.py
-work_dirs=work_dirs/kpfcnn_2xb16-cosine-80e_titan-seg/
-check_point=${work_dirs}epoch_32.pth
+# work_dirs/dgcnn_1xb6-cosine-100e_titan-seg/20231121_092442/dgcnn_1xb6-cosine-100e_titan-seg/best_miou_epoch_54.pth
+model_type=dgcnn_1xb6-cosine-100e_titan-seg
+train_date=20231121_092442
+model_pth=best_miou_epoch_54
 
-python tools/test.py ${config} ${check_point} --show --show-dir ${work_dirs} --task lidar_seg
+work_dirs=work_dirs/${model_type}/${train_date}
+config=work_dirs/${model_type}/${model_type}.py
+check_point=${work_dirs}/${model_type}/${model_pth}.pth
+
+# python tools/test.py ${config} ${check_point} --show --show-dir ${work_dirs} --task lidar_seg
+
+for i in {2,7,12,14,18,21,24,27}
+do 
+    pcd=${pcd_path}/area_${i}.bin
+    save_file=${work_dirs}/area_${i}
+    python demo/pcd_seg_demo.py ${pcd} ${config} ${check_point} --out-dir ${save_file} --snapshot
+done
+
+
 
 # pcd=${pcd_path}/area_2.bin
-# save_file=${work_dirs}area_2
+# save_file=${work_dirs}/area_2
 # python demo/pcd_seg_demo.py ${pcd} ${config} ${check_point} --out-dir ${save_file} --snapshot
 
 # pcd=${pcd_path}/area_7.bin

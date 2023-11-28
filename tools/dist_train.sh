@@ -2,8 +2,10 @@
 cd /home/bisifu/bsf/code/mmdetection3d/
 # CONFIG=configs/pointnet2/pointnet2_msg_2xb16-cosine-80e_s3dis-seg.py
 # CONFIG=configs/kpfcnn/kpfcnn_2xb16-cosine-80e_s3dis-seg.py
-# CONFIG=configs/kpfcnn/kpfcnn_2xb16-cosine-80e_titan-seg.py
-CONFIG=configs/pointnet2/pointnet2_msg_2xb16-cosine-80e_titan-seg.py
+CONFIG=configs/kpfcnn/kpfcnn_2xb16-cosine-80e_titan-seg.py
+# CONFIG=configs/kpfcnn/kpfcnn_2xb16-cosine-80e_vs_titan-seg.py
+# CONFIG=configs/kpfcnn/kpfcnn_2xb16-cosine-80e_hsl-seg.py
+# CONFIG=configs/pointnet2/pointnet2_msg_2xb16-cosine-80e_titan-seg.py
 # CONFIG=configs/pointnet2/pointnet2_msg_2xb16-cosine-80e_hsl-seg.py
 # CONFIG=/home/bisifu/bsf/code/mmdetection3d/configs/paconv/paconv_ssg-cuda_8xb8-cosine-80e_titan-seg.py
 GPUS=1
