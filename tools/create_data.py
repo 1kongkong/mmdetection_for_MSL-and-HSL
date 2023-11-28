@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import argparse
 from os import path as osp
+import glob
 
 from tools.dataset_converters import indoor_converter as indoor
 from tools.dataset_converters import outdoor_converter as outdoor
@@ -198,6 +199,21 @@ def hsl_data_prep(root_path, info_prefix, out_dir):
         filename = osp.join(out_dir, f'{info_prefix}_infos_{split}.pkl')
         update_pkl_infos('hsl', out_dir=out_dir, pkl_path=filename)
 
+def sensaturban_data_prep(root_path, info_prefix, out_dir):
+    """Prepare the info file for hsl dataset.
+
+    Args:
+        root_path (str): Path of dataset root.
+        info_prefix (str): The prefix of info filenames.
+        out_dir (str): Output directory of the generated info file.
+    """
+    outdoor.create_outdoor_info_file(
+        root_path, info_prefix, out_dir)
+    all_paths = glob.glob(osp.join(root_path,'origin_data','*.ply'))
+    splits = [path.split("/")[-1].split('.')[0] for path in all_paths]
+    for split in splits:
+        filename = osp.join(out_dir, f'{info_prefix}_infos_{split}.pkl')
+        update_pkl_infos('sensaturban', out_dir=out_dir, pkl_path=filename)
 
 def waymo_data_prep(root_path,
                     info_prefix,
@@ -417,6 +433,12 @@ if __name__ == '__main__':
         )
     elif args.dataset == 'hsl' or args.dataset == 'HSL':
         hsl_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag,
+            out_dir=args.out_dir,
+        )
+    elif args.dataset == 'SensatUrban':
+        sensaturban_data_prep(
             root_path=args.root_path,
             info_prefix=args.extra_tag,
             out_dir=args.out_dir,
