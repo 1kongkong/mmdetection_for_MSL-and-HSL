@@ -28,18 +28,19 @@ def convert_SyncBN(config):
     """
     if isinstance(config, dict):
         for item in config:
-            if item == 'norm_cfg':
-                config[item]['type'] = config[item]['type']. \
-                                    replace('naiveSyncBN', 'BN')
+            if item == "norm_cfg":
+                config[item]["type"] = config[item]["type"].replace("naiveSyncBN", "BN")
             else:
                 convert_SyncBN(config[item])
 
 
-def init_model(config: Union[str, Path, Config],
-               checkpoint: Optional[str] = None,
-               device: str = 'cuda:0',
-               palette: str = 'none',
-               cfg_options: Optional[dict] = None):
+def init_model(
+    config: Union[str, Path, Config],
+    checkpoint: Optional[str] = None,
+    device: str = "cuda:0",
+    palette: str = "none",
+    cfg_options: Optional[dict] = None,
+):
     """Initialize a model from config file, which could be a 3D detector or a
     3D segmentor.
 
@@ -58,56 +59,55 @@ def init_model(config: Union[str, Path, Config],
     if isinstance(config, (str, Path)):
         config = Config.fromfile(config)
     elif not isinstance(config, Config):
-        raise TypeError('config must be a filename or Config object, '
-                        f'but got {type(config)}')
+        raise TypeError("config must be a filename or Config object, " f"but got {type(config)}")
     if cfg_options is not None:
         config.merge_from_dict(cfg_options)
 
     convert_SyncBN(config.model)
-    config.model.train_cfg = None
-    init_default_scope(config.get('default_scope', 'mmdet3d'))
+    # config.model.train_cfg = None
+    init_default_scope(config.get("default_scope", "mmdet3d"))
     model = MODELS.build(config.model)
 
     if checkpoint is not None:
-        checkpoint = load_checkpoint(model, checkpoint, map_location='cpu')
+        checkpoint = load_checkpoint(model, checkpoint, map_location="cpu")
         # save the dataset_meta in the model for convenience
-        if 'dataset_meta' in checkpoint.get('meta', {}):
+        if "dataset_meta" in checkpoint.get("meta", {}):
             # mmdet3d 1.x
-            model.dataset_meta = checkpoint['meta']['dataset_meta']
-        elif 'CLASSES' in checkpoint.get('meta', {}):
+            model.dataset_meta = checkpoint["meta"]["dataset_meta"]
+        elif "CLASSES" in checkpoint.get("meta", {}):
             # < mmdet3d 1.x
-            classes = checkpoint['meta']['CLASSES']
-            model.dataset_meta = {'classes': classes}
+            classes = checkpoint["meta"]["CLASSES"]
+            model.dataset_meta = {"classes": classes}
 
-            if 'PALETTE' in checkpoint.get('meta', {}):  # 3D Segmentor
-                model.dataset_meta['palette'] = checkpoint['meta']['PALETTE']
+            if "PALETTE" in checkpoint.get("meta", {}):  # 3D Segmentor
+                model.dataset_meta["palette"] = checkpoint["meta"]["PALETTE"]
         else:
             # < mmdet3d 1.x
-            model.dataset_meta = {'classes': config.class_names}
+            model.dataset_meta = {"classes": config.class_names}
 
-            if 'PALETTE' in checkpoint.get('meta', {}):  # 3D Segmentor
-                model.dataset_meta['palette'] = checkpoint['meta']['PALETTE']
+            if "PALETTE" in checkpoint.get("meta", {}):  # 3D Segmentor
+                model.dataset_meta["palette"] = checkpoint["meta"]["PALETTE"]
 
         test_dataset_cfg = deepcopy(config.test_dataloader.dataset)
         # lazy init. We only need the metainfo.
-        test_dataset_cfg['lazy_init'] = True
+        test_dataset_cfg["lazy_init"] = True
         metainfo = DATASETS.build(test_dataset_cfg).metainfo
-        cfg_palette = metainfo.get('palette', None)
+        cfg_palette = metainfo.get("palette", None)
         if cfg_palette is not None:
-            model.dataset_meta['palette'] = cfg_palette
+            model.dataset_meta["palette"] = cfg_palette
         else:
-            if 'palette' not in model.dataset_meta:
+            if "palette" not in model.dataset_meta:
                 warnings.warn(
-                    'palette does not exist, random is used by default. '
-                    'You can also set the palette to customize.')
-                model.dataset_meta['palette'] = 'random'
+                    "palette does not exist, random is used by default. "
+                    "You can also set the palette to customize."
+                )
+                model.dataset_meta["palette"] = "random"
 
     model.cfg = config  # save the config in the model for convenience
-    if device != 'cpu':
+    if device != "cpu":
         torch.cuda.set_device(device)
     else:
-        warnings.warn('Don\'t suggest using CPU device. '
-                      'Some functions are not supported for now.')
+        warnings.warn("Don't suggest using CPU device. " "Some functions are not supported for now.")
 
     model.to(device)
     model.eval()
@@ -118,8 +118,7 @@ PointsType = Union[str, np.ndarray, Sequence[str], Sequence[np.ndarray]]
 ImagesType = Union[str, np.ndarray, Sequence[str], Sequence[np.ndarray]]
 
 
-def inference_detector(model: nn.Module,
-                       pcds: PointsType) -> Union[Det3DDataSample, SampleList]:
+def inference_detector(model: nn.Module, pcds: PointsType) -> Union[Det3DDataSample, SampleList]:
     """Inference point cloud with the detector.
 
     Args:
@@ -143,13 +142,12 @@ def inference_detector(model: nn.Module,
     if not isinstance(pcds[0], str):
         cfg = cfg.copy()
         # set loading pipeline type
-        cfg.test_dataloader.dataset.pipeline[0].type = 'LoadPointsFromDict'
+        cfg.test_dataloader.dataset.pipeline[0].type = "LoadPointsFromDict"
 
     # build the data pipeline
     test_pipeline = deepcopy(cfg.test_dataloader.dataset.pipeline)
     test_pipeline = Compose(test_pipeline)
-    box_type_3d, box_mode_3d = \
-        get_box_type(cfg.test_dataloader.dataset.box_type_3d)
+    box_type_3d, box_mode_3d = get_box_type(cfg.test_dataloader.dataset.box_type_3d)
 
     data = []
     for pcd in pcds:
@@ -162,7 +160,8 @@ def inference_detector(model: nn.Module,
                 # for ScanNet demo we need axis_align_matrix
                 axis_align_matrix=np.eye(4),
                 box_type_3d=box_type_3d,
-                box_mode_3d=box_mode_3d)
+                box_mode_3d=box_mode_3d,
+            )
         else:
             # directly use loaded point cloud
             data_ = dict(
@@ -171,7 +170,8 @@ def inference_detector(model: nn.Module,
                 # for ScanNet demo we need axis_align_matrix
                 axis_align_matrix=np.eye(4),
                 box_type_3d=box_type_3d,
-                box_mode_3d=box_mode_3d)
+                box_mode_3d=box_mode_3d,
+            )
         data_ = test_pipeline(data_)
         data.append(data_)
 
@@ -187,11 +187,13 @@ def inference_detector(model: nn.Module,
         return results, data
 
 
-def inference_multi_modality_detector(model: nn.Module,
-                                      pcds: Union[str, Sequence[str]],
-                                      imgs: Union[str, Sequence[str]],
-                                      ann_file: Union[str, Sequence[str]],
-                                      cam_type: str = 'CAM2'):
+def inference_multi_modality_detector(
+    model: nn.Module,
+    pcds: Union[str, Sequence[str]],
+    imgs: Union[str, Sequence[str]],
+    ann_file: Union[str, Sequence[str]],
+    cam_type: str = "CAM2",
+):
     """Inference point cloud with the multi-modality detector. Now we only
     support multi-modality detector for KITTI and SUNRGBD datasets since the
     multi-view image loading is not supported yet in this inference function.
@@ -227,10 +229,9 @@ def inference_multi_modality_detector(model: nn.Module,
     # build the data pipeline
     test_pipeline = deepcopy(cfg.test_dataloader.dataset.pipeline)
     test_pipeline = Compose(test_pipeline)
-    box_type_3d, box_mode_3d = \
-        get_box_type(cfg.test_dataloader.dataset.box_type_3d)
+    box_type_3d, box_mode_3d = get_box_type(cfg.test_dataloader.dataset.box_type_3d)
 
-    data_list = mmengine.load(ann_file)['data_list']
+    data_list = mmengine.load(ann_file)["data_list"]
 
     data = []
     for index, pcd in enumerate(pcds):
@@ -238,48 +239,45 @@ def inference_multi_modality_detector(model: nn.Module,
         data_info = data_list[index]
         img = imgs[index]
 
-        if cam_type != 'all':
-            assert osp.isfile(img), f'{img} must be a file.'
-            img_path = data_info['images'][cam_type]['img_path']
+        if cam_type != "all":
+            assert osp.isfile(img), f"{img} must be a file."
+            img_path = data_info["images"][cam_type]["img_path"]
             if osp.basename(img_path) != osp.basename(img):
-                raise ValueError(
-                    f'the info file of {img_path} is not provided.')
+                raise ValueError(f"the info file of {img_path} is not provided.")
             data_ = dict(
                 lidar_points=dict(lidar_path=pcd),
                 img_path=img,
                 box_type_3d=box_type_3d,
-                box_mode_3d=box_mode_3d)
-            data_info['images'][cam_type]['img_path'] = img
-            if 'cam2img' in data_info['images'][cam_type]:
+                box_mode_3d=box_mode_3d,
+            )
+            data_info["images"][cam_type]["img_path"] = img
+            if "cam2img" in data_info["images"][cam_type]:
                 # The data annotation in SRUNRGBD dataset does not contain
                 # `cam2img`
-                data_['cam2img'] = np.array(
-                    data_info['images'][cam_type]['cam2img'])
+                data_["cam2img"] = np.array(data_info["images"][cam_type]["cam2img"])
 
             # LiDAR to image conversion for KITTI dataset
             if box_mode_3d == Box3DMode.LIDAR:
-                if 'lidar2img' in data_info['images'][cam_type]:
-                    data_['lidar2img'] = np.array(
-                        data_info['images'][cam_type]['lidar2img'])
+                if "lidar2img" in data_info["images"][cam_type]:
+                    data_["lidar2img"] = np.array(data_info["images"][cam_type]["lidar2img"])
             # Depth to image conversion for SUNRGBD dataset
             elif box_mode_3d == Box3DMode.DEPTH:
-                data_['depth2img'] = np.array(
-                    data_info['images'][cam_type]['depth2img'])
+                data_["depth2img"] = np.array(data_info["images"][cam_type]["depth2img"])
         else:
-            assert osp.isdir(img), f'{img} must be a file directory'
-            for _, img_info in data_info['images'].items():
-                img_info['img_path'] = osp.join(img, img_info['img_path'])
-                assert osp.isfile(img_info['img_path']
-                                  ), f'{img_info["img_path"]} does not exist.'
+            assert osp.isdir(img), f"{img} must be a file directory"
+            for _, img_info in data_info["images"].items():
+                img_info["img_path"] = osp.join(img, img_info["img_path"])
+                assert osp.isfile(img_info["img_path"]), f'{img_info["img_path"]} does not exist.'
             data_ = dict(
                 lidar_points=dict(lidar_path=pcd),
-                images=data_info['images'],
+                images=data_info["images"],
                 box_type_3d=box_type_3d,
-                box_mode_3d=box_mode_3d)
+                box_mode_3d=box_mode_3d,
+            )
 
-        if 'timestamp' in data_info:
+        if "timestamp" in data_info:
             # Using multi-sweeps need `timestamp`
-            data_['timestamp'] = data_info['timestamp']
+            data_["timestamp"] = data_info["timestamp"]
 
         data_ = test_pipeline(data_)
         data.append(data_)
@@ -296,10 +294,9 @@ def inference_multi_modality_detector(model: nn.Module,
         return results, data
 
 
-def inference_mono_3d_detector(model: nn.Module,
-                               imgs: ImagesType,
-                               ann_file: Union[str, Sequence[str]],
-                               cam_type: str = 'CAM_FRONT'):
+def inference_mono_3d_detector(
+    model: nn.Module, imgs: ImagesType, ann_file: Union[str, Sequence[str]], cam_type: str = "CAM_FRONT"
+):
     """Inference image with the monocular 3D detector.
 
     Args:
@@ -328,28 +325,24 @@ def inference_mono_3d_detector(model: nn.Module,
     # build the data pipeline
     test_pipeline = deepcopy(cfg.test_dataloader.dataset.pipeline)
     test_pipeline = Compose(test_pipeline)
-    box_type_3d, box_mode_3d = \
-        get_box_type(cfg.test_dataloader.dataset.box_type_3d)
+    box_type_3d, box_mode_3d = get_box_type(cfg.test_dataloader.dataset.box_type_3d)
 
-    data_list = mmengine.load(ann_file)['data_list']
+    data_list = mmengine.load(ann_file)["data_list"]
     assert len(imgs) == len(data_list)
 
     data = []
     for index, img in enumerate(imgs):
         # get data info containing calib
         data_info = data_list[index]
-        img_path = data_info['images'][cam_type]['img_path']
+        img_path = data_info["images"][cam_type]["img_path"]
         if osp.basename(img_path) != osp.basename(img):
-            raise ValueError(f'the info file of {img_path} is not provided.')
+            raise ValueError(f"the info file of {img_path} is not provided.")
 
         # replace the img_path in data_info with img
-        data_info['images'][cam_type]['img_path'] = img
+        data_info["images"][cam_type]["img_path"] = img
         # avoid data_info['images'] has multiple keys anout camera views.
-        mono_img_info = {f'{cam_type}': data_info['images'][cam_type]}
-        data_ = dict(
-            images=mono_img_info,
-            box_type_3d=box_type_3d,
-            box_mode_3d=box_mode_3d)
+        mono_img_info = {f"{cam_type}": data_info["images"][cam_type]}
+        data_ = dict(images=mono_img_info, box_type_3d=box_type_3d, box_mode_3d=box_mode_3d)
 
         data_ = test_pipeline(data_)
         data.append(data_)
@@ -392,7 +385,7 @@ def inference_segmentor(model: nn.Module, pcds: PointsType):
 
     new_test_pipeline = []
     for pipeline in test_pipeline:
-        if pipeline['type'] != 'LoadAnnotations3D':
+        if pipeline["type"] != "LoadAnnotations3D":
             new_test_pipeline.append(pipeline)
     test_pipeline = Compose(new_test_pipeline)
 
