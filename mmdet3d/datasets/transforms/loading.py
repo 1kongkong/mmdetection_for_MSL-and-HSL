@@ -671,7 +671,6 @@ class LoadPointsFromFile(BaseTransform):
         points = points_class(
             points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
         results['points'] = points
-
         return results
 
     def __repr__(self) -> str:

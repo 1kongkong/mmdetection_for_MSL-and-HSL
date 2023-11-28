@@ -17,10 +17,10 @@ class TitanData(object):
         split (str, optional): Set split type of the data. Default: 'area_1'.
     """
 
-    def __init__(self, root_path, split='area_1'):
+    def __init__(self, root_path, split="area_1"):
         self.root_dir = root_path
         self.split = split
-        self.data_dir = osp.join(root_path, 'origin_data')
+        self.data_dir = osp.join(root_path, "origin_data")
 
     def get_infos(self, has_label=True):
         """Get data infos.
@@ -34,37 +34,38 @@ class TitanData(object):
         Returns:
             infos (list[dict]): Information of the raw data.
         """
-        path = osp.join(self.data_dir, self.split + '.ply')
-        print(f'Start process {path}')
+        path = osp.join(self.data_dir, self.split + ".ply")
+        print(f"Start process {path}")
         info = dict()
-        pc_info = {
-            'num_features': 6,
-            'lidar_idx': f'{self.split}'
-        }
-        info['point_cloud'] = pc_info
-        pts_filename = osp.join(self.root_dir, 'titan_data', f'{self.split}_point.npy')
-        pts_semantic_mask_path = osp.join(self.root_dir, 'titan_data', f'{self.split}_sem_label.npy')
-        mmengine.mkdir_or_exist(osp.join(self.root_dir, 'titan_data'))
+        pc_info = {"num_features": 6, "lidar_idx": f"{self.split}"}
+        info["point_cloud"] = pc_info
+        pts_filename = osp.join(self.root_dir, "titan_data", f"{self.split}_point.npy")
+        pts_semantic_mask_path = osp.join(self.root_dir, "titan_data", f"{self.split}_sem_label.npy")
+        mmengine.mkdir_or_exist(osp.join(self.root_dir, "titan_data"))
 
         cloud = read_ply(path)
-        point = np.vstack((cloud['x'], cloud['y'], cloud['z'], cloud['c1'], cloud['c2'], cloud['c3'])).astype(np.float32).T
-        label = cloud['class'].astype(np.int64)
+        point = (
+            np.vstack((cloud["x"], cloud["y"], cloud["z"], cloud["c1"], cloud["c2"], cloud["c3"]))
+            .astype(np.float32)
+            .T
+        )
+        label = cloud["class"].astype(np.int64)
         np.save(pts_filename, point)
         np.save(pts_semantic_mask_path, label)
-        print(f'Finish process {path}')
+        print(f"Finish process {path}")
 
-        path_pointdir = osp.join(self.root_dir, 'points')
-        path_labeldir = osp.join(self.root_dir, 'semantic_mask')
+        path_pointdir = osp.join(self.root_dir, "points")
+        path_labeldir = osp.join(self.root_dir, "semantic_mask")
         mmengine.mkdir_or_exist(path_pointdir)
         mmengine.mkdir_or_exist(path_labeldir)
-        path_point_bin = osp.join(path_pointdir, f'{self.split}.bin')
-        path_label_bin = osp.join(path_labeldir, f'{self.split}.bin')
-        with open(path_point_bin, 'wb') as f:
+        path_point_bin = osp.join(path_pointdir, f"{self.split}.bin")
+        path_label_bin = osp.join(path_labeldir, f"{self.split}.bin")
+        with open(path_point_bin, "wb") as f:
             f.write(point.tobytes())
-        with open(path_label_bin, 'wb') as f:
+        with open(path_label_bin, "wb") as f:
             f.write(label.tobytes())
-        info['pts_path'] = osp.join('points', f'{self.split}.bin')
-        info['pts_semantic_mask_path'] = osp.join('semantic_mask', f'{self.split}.bin')
+        info["pts_path"] = osp.join("points", f"{self.split}.bin")
+        info["pts_semantic_mask_path"] = osp.join("semantic_mask", f"{self.split}.bin")
 
         return [info]
 
@@ -82,12 +83,7 @@ class TitanSegData(object):
             label weight. Default: None.
     """
 
-    def __init__(self,
-                 data_root,
-                 ann_file,
-                 num_points,
-                 split='Area_1',
-                 label_weight_func=None):
+    def __init__(self, data_root, ann_file, num_points, split="Area_1", label_weight_func=None):
         self.data_root = data_root
         self.data_infos = mmengine.load(ann_file)
         self.split = split
@@ -102,21 +98,22 @@ class TitanSegData(object):
         for i, cat_id in enumerate(self.cat_ids):
             self.cat_id2class[cat_id] = i
 
-        self.label_weight_func = (lambda x: 1.0 / np.log(1.2 + x)) if \
-            label_weight_func is None else label_weight_func
+        self.label_weight_func = (
+            (lambda x: 1.0 / np.log(1.2 + x)) if label_weight_func is None else label_weight_func
+        )
 
     def get_seg_infos(self):
         scene_idxs, label_weight = self.get_scene_idxs_and_label_weight()
-        save_folder = osp.join(self.data_root, 'seg_info')
+        save_folder = osp.join(self.data_root, "seg_info")
         mmengine.mkdir_or_exist(save_folder)
-        np.save(osp.join(save_folder, f'{self.split}_resampled_scene_idxs.npy'), scene_idxs)
-        np.save(osp.join(save_folder, f'{self.split}_label_weight.npy'), label_weight)
-        print(f'{self.split} resampled area index and label weight saved')
+        np.save(osp.join(save_folder, f"{self.split}_resampled_scene_idxs.npy"), scene_idxs)
+        np.save(osp.join(save_folder, f"{self.split}_label_weight.npy"), label_weight)
+        print(f"{self.split} resampled area index and label weight saved")
 
     def _convert_to_label(self, mask):
         """Convert class_id in loaded segmentation mask to label."""
         if isinstance(mask, str):
-            if mask.endswith('npy'):
+            if mask.endswith("npy"):
                 mask = np.load(mask)
             else:
                 mask = np.fromfile(mask, dtype=np.int64)
@@ -130,22 +127,18 @@ class TitanSegData(object):
         We sample more times for scenes with more points. Label_weight is
         inversely proportional to number of class points.
         """
-        num_classes = len(self.cat_ids)
+        num_classes = len(self.cat_ids)  # used for seg task
         num_point_all = []
-        label_weight = np.zeros((num_classes + 1, ))  # ignore_index
+        label_weight = np.zeros((num_classes + 1,))  # ignore_index
         # for data_info in self.data_infos:
         for data_info in self.data_infos:
-            label = self._convert_to_label(
-                osp.join(self.data_root, data_info['pts_semantic_mask_path']))
+            label = self._convert_to_label(osp.join(self.data_root, data_info["pts_semantic_mask_path"]))
             num_point_all.append(label.shape[0])
             class_count, _ = np.histogram(label, range(num_classes + 2))
             label_weight += class_count
-        num_point_all.append(label.shape[0])
-        class_count, _ = np.histogram(label, range(num_classes + 2))
-        label_weight += class_count
 
         sample_prob = np.array(num_point_all) / float(np.sum(num_point_all))
-        num_iter = int(np.sum(num_point_all) / float(self.num_points))
+        num_iter = int(np.sum(num_point_all) / float(self.num_points) / 4) # 适当降低采样次数
         scene_idxs = []
         for idx in range(len(self.data_infos)):
             scene_idxs.extend([idx] * int(round(sample_prob[idx] * num_iter)))

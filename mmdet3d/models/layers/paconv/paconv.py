@@ -40,17 +40,22 @@ class ScoreNet(nn.Module):
         or not. So we neglect this initialization in our implementation.
     """
 
-    def __init__(self,
-                 mlp_channels: List[int],
-                 last_bn: bool = False,
-                 score_norm: str = 'softmax',
-                 temp_factor: float = 1.0,
-                 norm_cfg: ConfigType = dict(type='BN2d'),
-                 bias: Union[bool, str] = 'auto') -> None:
+    def __init__(
+        self,
+        mlp_channels: List[int],
+        last_bn: bool = False,
+        score_norm: str = "softmax",
+        temp_factor: float = 1.0,
+        norm_cfg: ConfigType = dict(type="BN2d"),
+        bias: Union[bool, str] = "auto",
+    ) -> None:
         super(ScoreNet, self).__init__()
 
-        assert score_norm in ['softmax', 'sigmoid', 'identity'], \
-            f'unsupported score_norm function {score_norm}'
+        assert score_norm in [
+            "softmax",
+            "sigmoid",
+            "identity",
+        ], f"unsupported score_norm function {score_norm}"
 
         self.score_norm = score_norm
         self.temp_factor = temp_factor
@@ -58,29 +63,33 @@ class ScoreNet(nn.Module):
         self.mlps = nn.Sequential()
         for i in range(len(mlp_channels) - 2):
             self.mlps.add_module(
-                f'layer{i}',
+                f"layer{i}",
                 ConvModule(
                     mlp_channels[i],
                     mlp_channels[i + 1],
                     kernel_size=(1, 1),
                     stride=(1, 1),
-                    conv_cfg=dict(type='Conv2d'),
+                    conv_cfg=dict(type="Conv2d"),
                     norm_cfg=norm_cfg,
-                    bias=bias))
+                    bias=bias,
+                ),
+            )
 
         # for the last mlp that outputs scores, no relu and possibly no bn
         i = len(mlp_channels) - 2
         self.mlps.add_module(
-            f'layer{i}',
+            f"layer{i}",
             ConvModule(
                 mlp_channels[i],
                 mlp_channels[i + 1],
                 kernel_size=(1, 1),
                 stride=(1, 1),
-                conv_cfg=dict(type='Conv2d'),
+                conv_cfg=dict(type="Conv2d"),
                 norm_cfg=norm_cfg if last_bn else None,
                 act_cfg=None,
-                bias=bias))
+                bias=bias,
+            ),
+        )
 
     def forward(self, xyz_features: Tensor) -> Tensor:
         """Forward.
@@ -96,9 +105,9 @@ class ScoreNet(nn.Module):
         scores = self.mlps(xyz_features)  # (B, M, N, K)
 
         # perform score normalization
-        if self.score_norm == 'softmax':
+        if self.score_norm == "softmax":
             scores = F.softmax(scores / self.temp_factor, dim=1)
-        elif self.score_norm == 'sigmoid':
+        elif self.score_norm == "sigmoid":
             scores = torch.sigmoid(scores / self.temp_factor)
         else:  # 'identity'
             scores = scores
@@ -151,75 +160,68 @@ class PAConv(nn.Module):
         in_channels: int,
         out_channels: int,
         num_kernels: int,
-        norm_cfg: ConfigType = dict(type='BN2d', momentum=0.1),
-        act_cfg: ConfigType = dict(type='ReLU', inplace=True),
-        scorenet_input: str = 'w_neighbor_dist',
-        weight_bank_init: str = 'kaiming',
-        kernel_input: str = 'w_neighbor',
+        norm_cfg: ConfigType = dict(type="BN2d", momentum=0.1),
+        act_cfg: ConfigType = dict(type="ReLU", inplace=True),
+        scorenet_input: str = "w_neighbor_dist",
+        weight_bank_init: str = "kaiming",
+        kernel_input: str = "w_neighbor",
         scorenet_cfg: dict = dict(
-            mlp_channels=[16, 16, 16],
-            score_norm='softmax',
-            temp_factor=1.0,
-            last_bn=False)
+            mlp_channels=[16, 16, 16], score_norm="softmax", temp_factor=1.0, last_bn=False
+        ),
     ) -> None:
         super(PAConv, self).__init__()
 
         # determine weight kernel size according to used features
-        if kernel_input == 'identity':
+        if kernel_input == "identity":
             # only use grouped_features
             kernel_mul = 1
-        elif kernel_input == 'w_neighbor':
+        elif kernel_input == "w_neighbor":
             # concat of (grouped_features - center_features, grouped_features)
             kernel_mul = 2
         else:
-            raise NotImplementedError(
-                f'unsupported kernel_input {kernel_input}')
+            raise NotImplementedError(f"unsupported kernel_input {kernel_input}")
         self.kernel_input = kernel_input
         in_channels = kernel_mul * in_channels
 
         # determine mlp channels in ScoreNet according to used xyz features
-        if scorenet_input == 'identity':
+        if scorenet_input == "identity":
             # only use relative position (grouped_xyz - center_xyz)
             self.scorenet_in_channels = 3
-        elif scorenet_input == 'w_neighbor':
+        elif scorenet_input == "w_neighbor":
             # (grouped_xyz - center_xyz, grouped_xyz)
             self.scorenet_in_channels = 6
-        elif scorenet_input == 'w_neighbor_dist':
+        elif scorenet_input == "w_neighbor_dist":
             # (center_xyz, grouped_xyz - center_xyz, Euclidean distance)
             self.scorenet_in_channels = 7
         else:
-            raise NotImplementedError(
-                f'unsupported scorenet_input {scorenet_input}')
+            raise NotImplementedError(f"unsupported scorenet_input {scorenet_input}")
         self.scorenet_input = scorenet_input
 
         # construct kernel weights in weight bank
         # self.weight_bank is of shape [C, num_kernels * out_c]
         # where C can be in_c or (2 * in_c)
-        if weight_bank_init == 'kaiming':
+        if weight_bank_init == "kaiming":
             weight_init = nn.init.kaiming_normal_
-        elif weight_bank_init == 'xavier':
+        elif weight_bank_init == "xavier":
             weight_init = nn.init.xavier_normal_
         else:
-            raise NotImplementedError(
-                f'unsupported weight bank init method {weight_bank_init}')
+            raise NotImplementedError(f"unsupported weight bank init method {weight_bank_init}")
 
         self.num_kernels = num_kernels  # the parameter `m` in the paper
-        weight_bank = weight_init(
-            torch.empty(self.num_kernels, in_channels, out_channels))
-        weight_bank = weight_bank.permute(1, 0, 2).reshape(
-            in_channels, self.num_kernels * out_channels).contiguous()
+        weight_bank = weight_init(torch.empty(self.num_kernels, in_channels, out_channels))
+        weight_bank = (
+            weight_bank.permute(1, 0, 2).reshape(in_channels, self.num_kernels * out_channels).contiguous()
+        )
         self.weight_bank = nn.Parameter(weight_bank, requires_grad=True)
 
         # construct ScoreNet
         scorenet_cfg_ = copy.deepcopy(scorenet_cfg)
-        scorenet_cfg_['mlp_channels'].insert(0, self.scorenet_in_channels)
-        scorenet_cfg_['mlp_channels'].append(self.num_kernels)
+        scorenet_cfg_["mlp_channels"].insert(0, self.scorenet_in_channels)
+        scorenet_cfg_["mlp_channels"].append(self.num_kernels)
         self.scorenet = ScoreNet(**scorenet_cfg_)
 
-        self.bn = build_norm_layer(norm_cfg, out_channels)[1] if \
-            norm_cfg is not None else None
-        self.activate = build_activation_layer(act_cfg) if \
-            act_cfg is not None else None
+        self.bn = build_norm_layer(norm_cfg, out_channels)[1] if norm_cfg is not None else None
+        self.activate = build_activation_layer(act_cfg) if act_cfg is not None else None
 
         # set some basic attributes of Conv layers
         self.in_channels = in_channels
@@ -245,17 +247,16 @@ class PAConv(nn.Module):
         B, _, npoint, K = points_xyz.size()
         center_xyz = points_xyz[..., :1].repeat(1, 1, 1, K)
         xyz_diff = points_xyz - center_xyz  # [B, 3, npoint, K]
-        if self.scorenet_input == 'identity':
+        if self.scorenet_input == "identity":
             xyz_features = xyz_diff
-        elif self.scorenet_input == 'w_neighbor':
+        elif self.scorenet_input == "w_neighbor":
             xyz_features = torch.cat((xyz_diff, points_xyz), dim=1)
         else:  # w_neighbor_dist
             euclidian_dist = calc_euclidian_dist(
                 center_xyz.permute(0, 2, 3, 1).reshape(B * npoint * K, 3),
-                points_xyz.permute(0, 2, 3, 1).reshape(B * npoint * K, 3)).\
-                    reshape(B, 1, npoint, K)
-            xyz_features = torch.cat((center_xyz, xyz_diff, euclidian_dist),
-                                     dim=1)
+                points_xyz.permute(0, 2, 3, 1).reshape(B * npoint * K, 3),
+            ).reshape(B, 1, npoint, K)
+            xyz_features = torch.cat((center_xyz, xyz_diff, euclidian_dist), dim=1)
         return xyz_features
 
     def forward(self, inputs: Tuple[Tensor]) -> Tuple[Tensor]:
@@ -278,7 +279,7 @@ class PAConv(nn.Module):
         features, points_xyz = inputs
         B, _, npoint, K = features.size()
 
-        if self.kernel_input == 'w_neighbor':
+        if self.kernel_input == "w_neighbor":
             center_features = features[..., :1].repeat(1, 1, 1, K)
             features_diff = features - center_features
             # to (B, 2 * in_c, npoint, K)
@@ -292,10 +293,9 @@ class PAConv(nn.Module):
 
         # first compute out features over all kernels
         # features is [B, C, npoint, K], weight_bank is [C, m * out_c]
-        new_features = torch.matmul(
-            features.permute(0, 2, 3, 1),
-            self.weight_bank).view(B, npoint, K, self.num_kernels,
-                                   -1)  # [B, npoint, K, m, out_c]
+        new_features = torch.matmul(features.permute(0, 2, 3, 1), self.weight_bank).view(
+            B, npoint, K, self.num_kernels, -1
+        )  # [B, npoint, K, m, out_c]
 
         # then aggregate using scores
         new_features = assign_score(scores, new_features)
@@ -328,16 +328,14 @@ class PAConvCUDA(PAConv):
         in_channels: int,
         out_channels: int,
         num_kernels: int,
-        norm_cfg: ConfigType = dict(type='BN2d', momentum=0.1),
-        act_cfg: ConfigType = dict(type='ReLU', inplace=True),
-        scorenet_input: str = 'w_neighbor_dist',
-        weight_bank_init: str = 'kaiming',
-        kernel_input: str = 'w_neighbor',
+        norm_cfg: ConfigType = dict(type="BN2d", momentum=0.1),
+        act_cfg: ConfigType = dict(type="ReLU", inplace=True),
+        scorenet_input: str = "w_neighbor_dist",
+        weight_bank_init: str = "kaiming",
+        kernel_input: str = "w_neighbor",
         scorenet_cfg: dict = dict(
-            mlp_channels=[8, 16, 16],
-            score_norm='softmax',
-            temp_factor=1.0,
-            last_bn=False)
+            mlp_channels=[8, 16, 16], score_norm="softmax", temp_factor=1.0, last_bn=False
+        ),
     ) -> None:
         super(PAConvCUDA, self).__init__(
             in_channels=in_channels,
@@ -348,10 +346,12 @@ class PAConvCUDA(PAConv):
             scorenet_input=scorenet_input,
             weight_bank_init=weight_bank_init,
             kernel_input=kernel_input,
-            scorenet_cfg=scorenet_cfg)
+            scorenet_cfg=scorenet_cfg,
+        )
 
-        assert self.kernel_input == 'w_neighbor', \
-            'CUDA implemented PAConv only supports w_neighbor kernel_input'
+        assert (
+            self.kernel_input == "w_neighbor"
+        ), "CUDA implemented PAConv only supports w_neighbor kernel_input"
 
     def forward(self, inputs: Tuple[Tensor]) -> Tuple[Tensor]:
         """Forward.
@@ -385,13 +385,21 @@ class PAConvCUDA(PAConv):
 
         # pre-compute features for points and centers separately
         # features is [B, in_c, N], weight_bank is [C, m * out_dim]
-        point_feat, center_feat = assign_kernel_withoutk(
-            features, self.weight_bank, self.num_kernels)
+        point_feat, center_feat = assign_kernel_withoutk(features, self.weight_bank, self.num_kernels)
 
         # aggregate features using custom cuda op
-        new_features = assign_score_cuda(
-            scores, point_feat, center_feat, points_idx,
-            'sum').contiguous()  # [B, out_c, npoint, K]
+        ## 适配AMP
+        if point_feat.dtype == torch.float16 or center_feat.dtype == torch.float16:
+            point_feat = point_feat.to(torch.float32)
+            center_feat = center_feat.to(torch.float32)
+            new_features = assign_score_cuda(
+                scores, point_feat, center_feat, points_idx, "sum"
+            ).contiguous()  # [B, out_c, npoint, K]
+            new_features = new_features.to(torch.float16)
+        else:
+            new_features = assign_score_cuda(
+                scores, point_feat, center_feat, points_idx, "sum"
+            ).contiguous()  # [B, out_c, npoint, K]
 
         if self.bn is not None:
             new_features = self.bn(new_features)

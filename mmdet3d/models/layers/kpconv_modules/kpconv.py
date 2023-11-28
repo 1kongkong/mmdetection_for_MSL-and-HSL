@@ -10,22 +10,24 @@ from mmcv.ops.group_points import grouping_operation
 from .kernel_points import load_kernels
 from mmcv.cnn import ConvModule
 from mmcv.cnn.bricks.activation import build_activation_layer
+
 # from mmcv.cnn.bricks.conv import build_conv_layer
 from mmcv.cnn.bricks.norm import build_norm_layer
 
 
 class KPConv(nn.Module):
     def __init__(
-            self,
-            kernel_size: int,
-            input_dim: int,
-            output_dim: int,
-            neighbor_num: int = 20,
-            weight_norm: bool = False,
-            dimension: int = 3,
-            bias: bool = False,
-            inf=1e6,
-            eps=1e-9,
+        self,
+        kernel_size: int,
+        input_dim: int,
+        output_dim: int,
+        radius: int = None,
+        neighbor_num: int = 20,
+        weight_norm: bool = False,
+        dimension: int = 3,
+        bias: bool = False,
+        inf=1e6,
+        eps=1e-9,
     ):
         """Initialize parameters for KPConv.
 
@@ -50,6 +52,7 @@ class KPConv(nn.Module):
         self.kernel_size = kernel_size
         self.input_dim = input_dim
         self.output_dim = output_dim
+        self.radius = radius
         self.K = neighbor_num
         self.weight_norm = weight_norm
         self.dimension = dimension
@@ -67,7 +70,7 @@ class KPConv(nn.Module):
         self._reset_parameters()
 
         # Initialize kernel points
-        self.register_buffer('kernel_points', self._initialize_kernel_points())
+        self.register_buffer("kernel_points", self._initialize_kernel_points())
 
     def _reset_parameters(self):
         nn.init.kaiming_uniform_(self.weights, a=math.sqrt(5))
@@ -80,18 +83,24 @@ class KPConv(nn.Module):
         :return: the tensor of kernel points
         """
         # Create one kernel disposition (as numpy array). Choose the KP distance to center thanks to the KP extent
-        kernel_points = load_kernels(
-            1, self.kernel_size, dimension=self.dimension, fixed='center'
-        )
+        if self.radius:
+            kernel_points = load_kernels(
+                self.radius, self.kernel_size, dimension=self.dimension, fixed="center"
+            )
+        else:
+            kernel_points = load_kernels(1, self.kernel_size, dimension=self.dimension, fixed="center")
+        # if kernel_points is None:
         return torch.from_numpy(kernel_points).float()
 
-    def forward(self, points_xyz, features, center_xyz, neighbor_indices) -> Tuple[Tensor]:
+    def forward(
+        self, points_xyz, features, center_xyz, neighbor_indices, feature_len, idx_len
+    ) -> Tuple[Tensor]:
         """
         input:
             points_xyz -> [B,N,3]
             features -> [B,D,N]
             center_xyz -> [B,M,3]
-            neighbor_num -> [B,M,K] 空缺值用-1补齐
+            neighbor_num -> [B,M,K]
         output:
             output_feats->B,out_dim,N
         """
@@ -101,31 +110,51 @@ class KPConv(nn.Module):
         # return: (B, C, M, K)
         points_xyz_trans = points_xyz.transpose(1, 2).contiguous()
         points = torch.cat([points_xyz_trans, features], dim=1)
-        neighbors = grouping_operation(points, neighbor_indices)
+
+        if feature_len is None and idx_len is None:
+            neighbors = grouping_operation(points, neighbor_indices)
+        else:
+            points = points.squeeze(0).permute(1, 0)
+            neighbor_indices = neighbor_indices.squeeze(0)
+            neighbors = grouping_operation(points, neighbor_indices, feature_len, idx_len)
+            neighbors = neighbors.permute(1, 0, 2).unsqueeze(0)
         neighbors_xyz = neighbors[:, :3, ...].permute(0, 2, 3, 1).contiguous()  # B, M, K, 3
         neighbors_feats = neighbors[:, 3:, ...].permute(0, 2, 3, 1).contiguous()  # B, M, K, C
 
         neighbors_xyz = neighbors_xyz - center_xyz.unsqueeze(2)
-        dist = torch.sqrt(torch.sum(neighbors_xyz ** 2, dim=3))
+        dist = torch.sqrt(torch.sum(neighbors_xyz**2, dim=3))
 
         # Get all difference matrices [n_points, n_neighbors, n_kernel_points, dim]
         m_dist = torch.max(dist, dim=2, keepdim=True)[0]  # B N 1
-        kernel_points = self.kernel_points.cuda()  # k 3
-        kernel_points = kernel_points[None, None, :, :] * m_dist[:, :, :, None]  # 1 1 k 3 * B N 1 1 -> B N k 3
-        differences = neighbors_xyz.unsqueeze(3) - kernel_points.unsqueeze(2)  # B,N,K,k,3
+        kernel_points = self.kernel_points  # k 3
+        if not self.radius:
+            kernel_points = (
+                kernel_points[None, None, :, :] * m_dist[:, :, :, None]  # 1 1 k 3 * B N 1 1 -> B N k 3
+            )
+            differences = neighbors_xyz.unsqueeze(3) - kernel_points.unsqueeze(2)  # B,N,K,k,3
+        else:
+            differences = neighbors_xyz.unsqueeze(3) - kernel_points  # B,N,K,k,3
 
         # Get the square distances [n_points, n_neighbors, n_kernel_points]
-        sq_distances = torch.sum(differences ** 2, dim=4)  # B,N,K,k
+        sq_distances = torch.sum(differences**2, dim=4)  # B,N,K,k
 
         # Get Kernel point influences [n_points, n_kernel_points, n_neighbors]
         # Influence decrease linearly with the distance, and get to zero when d = sigma.
-        neighbor_weights = torch.clamp(1 - torch.sqrt(sq_distances) / (m_dist.unsqueeze(-1) / 2.5 + 1e-6), min=0.0)
+        if not self.radius:
+            neighbor_weights = torch.clamp(
+                1 - torch.sqrt(sq_distances) / (m_dist.unsqueeze(-1) / 2.5 + 1e-6), min=0.0
+            )
+        else:
+            neighbor_weights = torch.clamp(1 - torch.sqrt(sq_distances) / (self.radius / 2.5 + 1e-6), min=0.0)
 
         # weight normalization
+        
+        neighbor_weights = neighbor_weights / (
+            torch.sum(neighbor_weights, dim=-2, keepdim=True) + 1e-6
+        )  # B,N,K,k
         if self.weight_norm:
-            neighbor_weights = neighbor_weights / (torch.sum(neighbor_weights, dim=-2, keepdim=True) + 1e-6)  # B,N,K,k
             mask_ = torch.sum(neighbor_weights, dim=2)  # B,N,k
-            mask = torch.sum(torch.gt(mask_, 0.), dim=-1, keepdim=False)  # B,N
+            mask = torch.sum(torch.gt(mask_, 0.0), dim=-1, keepdim=False)  # B,N
 
         neighbor_weights = torch.transpose(neighbor_weights, 2, 3)  # B,N,k,K
 
@@ -139,7 +168,7 @@ class KPConv(nn.Module):
         kernel_outputs = torch.matmul(weighted_feats, self.weights)  # B k N out_dim
 
         # Convolution sum [n_points, output_dim]
-        output_feats = torch.sum(kernel_outputs, dim=1, keepdim=False)   # B,N,out_dim
+        output_feats = torch.sum(kernel_outputs, dim=1, keepdim=False)  # B,N,out_dim
 
         # normalization term.
         if self.weight_norm:
@@ -147,31 +176,32 @@ class KPConv(nn.Module):
             return output_feats.permute(0, 2, 1).contiguous()  # B,out_dim,N
 
         neighbor_feats_sum = torch.sum(neighbors_feats, dim=-1)  # B,N,K
-        neighbor_num = torch.sum(torch.gt(neighbor_feats_sum, 0.), dim=-1)  # B N
+        neighbor_num = torch.sum(torch.gt(neighbor_feats_sum, 0.0), dim=-1)  # B N
         neighbor_num = torch.max(neighbor_num, torch.ones_like(neighbor_num))
         output_feats = output_feats / neighbor_num.unsqueeze(-1)  # B N 1
 
         return output_feats.permute(0, 2, 1).contiguous()  # B,out_dim,N
 
     def __repr__(self):
-        repr_str = self.__class__.__name__ + '('
-        repr_str += 'kernel_size: {}, input_dim: {}, output_dim: {}, bias: {}'.format(
+        repr_str = self.__class__.__name__ + "("
+        repr_str += "kernel_size: {}, input_dim: {}, output_dim: {}, bias: {}".format(
             self.kernel_size, self.input_dim, self.output_dim, self.has_bias
         )
-        repr_str += ')'
+        repr_str += ")"
         return repr_str
 
 
 class KPConvBlock(nn.Module):
     def __init__(
-            self,
-            kernel_size,
-            input_dim,
-            output_dim,
-            neighbor_num=20,
-            weight_norm=False,
-            norm_cfg: Optional[Dict] = dict(type='BN1d'),
-            act_cfg: Optional[Dict] = dict(type='LeakyReLU', negative_slope=0.1)
+        self,
+        kernel_size,
+        input_dim,
+        output_dim,
+        radius=None,
+        neighbor_num=20,
+        weight_norm=False,
+        norm_cfg: Optional[Dict] = dict(type="BN1d"),
+        act_cfg: Optional[Dict] = dict(type="LeakyReLU", negative_slope=0.1),
     ):
         r"""Initialize a KPConv block with ReLU and BatchNorm.
 
@@ -185,14 +215,16 @@ class KPConvBlock(nn.Module):
 
         self.input_dim = input_dim
         self.output_dim = output_dim
+        self.radius = radius
 
-        self.KPConv = KPConv(kernel_size, input_dim, output_dim, neighbor_num, weight_norm, bias=False)
+        self.KPConv = KPConv(
+            kernel_size, input_dim, output_dim, radius, neighbor_num, weight_norm, bias=False
+        )
         self.norm_name, self.norm_layer = build_norm_layer(norm_cfg, output_dim)
         self.leaky_relu = build_activation_layer(act_cfg)
 
-    def forward(self, points_xyz, features, center_xyz, neighbor_indices):
-
-        x = self.KPConv(points_xyz, features, center_xyz, neighbor_indices)
+    def forward(self, points_xyz, features, center_xyz, neighbor_indices, feature_len=None, idx_len=None):
+        x = self.KPConv(points_xyz, features, center_xyz, neighbor_indices, feature_len, idx_len)
         x = self.norm_layer(x)
         x = self.leaky_relu(x)
 
@@ -201,15 +233,16 @@ class KPConvBlock(nn.Module):
 
 class KPResNetBlock(nn.Module):
     def __init__(
-            self,
-            kernel_size,
-            input_dim,
-            output_dim,
-            neighbor_num=20,
-            weight_norm=False,
-            strided=False,
-            norm_cfg: Optional[Dict] = dict(type='BN1d'),
-            act_cfg: Optional[Dict] = dict(type='LeakyReLU', negative_slope=0.1)
+        self,
+        kernel_size,
+        input_dim,
+        output_dim,
+        radius=None,
+        neighbor_num=20,
+        weight_norm=False,
+        strided=False,
+        norm_cfg: Optional[Dict] = dict(type="BN1d"),
+        act_cfg: Optional[Dict] = dict(type="LeakyReLU", negative_slope=0.1),
     ):
         r"""Initialize a ResNet bottleneck block.
 
@@ -227,6 +260,7 @@ class KPResNetBlock(nn.Module):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.strided = strided
+        self.radius = radius
 
         hidden_dim = output_dim // 4
 
@@ -237,14 +271,16 @@ class KPResNetBlock(nn.Module):
                 kernel_size=1,
                 stride=1,
                 bias=False,
-                conv_cfg=dict(type='Conv1d'),
+                conv_cfg=dict(type="Conv1d"),
                 norm_cfg=norm_cfg,
-                act_cfg=act_cfg
+                act_cfg=act_cfg,
             )
         else:
             self.unary1 = nn.Identity()
 
-        self.KPConv = KPConv(kernel_size, hidden_dim, hidden_dim, neighbor_num, weight_norm, bias=False)
+        self.KPConv = KPConv(
+            kernel_size, hidden_dim, hidden_dim, radius, neighbor_num, weight_norm, bias=False
+        )
         self.norm_name, self.norm_layer = build_norm_layer(norm_cfg, hidden_dim)
 
         self.unary2 = ConvModule(
@@ -253,9 +289,9 @@ class KPResNetBlock(nn.Module):
             kernel_size=1,
             stride=1,
             bias=False,
-            conv_cfg=dict(type='Conv1d'),
+            conv_cfg=dict(type="Conv1d"),
             norm_cfg=norm_cfg,
-            act_cfg=act_cfg
+            act_cfg=act_cfg,
         )
 
         if input_dim != output_dim:
@@ -265,32 +301,37 @@ class KPResNetBlock(nn.Module):
                 kernel_size=1,
                 stride=1,
                 bias=False,
-                conv_cfg=dict(type='Conv1d'),
+                conv_cfg=dict(type="Conv1d"),
                 norm_cfg=norm_cfg,
-                act_cfg=act_cfg
+                act_cfg=act_cfg,
             )
         else:
             self.unary_shortcut = nn.Identity()
 
         self.leaky_relu = build_activation_layer(act_cfg)
 
-    def _maxpool(self, features, neighbor_indices):
+    def _maxpool(self, features, neighbor_indices, feature_len, idx_len):
         # Get neighbor points
         # input: (B, C, N) , (B, M, K)
         # return: (B, C, M, K)
-        neightbor_features = grouping_operation(features, neighbor_indices)
-        return neightbor_features.max(dim=-1)[0]
+        if feature_len is None and idx_len is None:
+            neighbor_features = grouping_operation(features, neighbor_indices)
+        else:
+            features = features.squeeze(0).permute(1, 0)
+            neighbor_indices = neighbor_indices.squeeze(0)
+            neighbor_features = grouping_operation(features, neighbor_indices, feature_len, idx_len)
+            neighbor_features = neighbor_features.permute(1, 0, 2).unsqueeze(0)
+        return neighbor_features.max(dim=-1)[0]
 
-    def forward(self, points_xyz, features, center_xyz, neighbor_indices):
-
+    def forward(self, points_xyz, features, center_xyz, neighbor_indices, feature_len=None, idx_len=None):
         x = self.unary1(features)
-        x = self.KPConv(points_xyz, x, center_xyz, neighbor_indices)
+        x = self.KPConv(points_xyz, x, center_xyz, neighbor_indices, feature_len, idx_len)
         x = self.norm_layer(x)
         x = self.leaky_relu(x)
         x = self.unary2(x)
 
         if self.strided:
-            shortcut = self._maxpool(features, neighbor_indices)
+            shortcut = self._maxpool(features, neighbor_indices, feature_len, idx_len)
         else:
             shortcut = features
         shortcut = self.unary_shortcut(shortcut)
@@ -302,9 +343,9 @@ class KPResNetBlock(nn.Module):
 
 
 # if __name__ == '__main__':
-    # model = KPConv(15, 4, 6, 1000, 0.4)
-    # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    # cloud1 = 10*torch.randn(1, 10, 3).to(device)
-    # cloud2 = 10*torch.randn(1, 20, 3).to(device)
-    # feat = 1000*torch.randn(1, 20, 4).to(device)
-    # out = model(feat, cloud1, cloud2)
+# model = KPConv(15, 4, 6, 1000, 0.4)
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# cloud1 = 10*torch.randn(1, 10, 3).to(device)
+# cloud2 = 10*torch.randn(1, 20, 3).to(device)
+# feat = 1000*torch.randn(1, 20, 4).to(device)
+# out = model(feat, cloud1, cloud2)

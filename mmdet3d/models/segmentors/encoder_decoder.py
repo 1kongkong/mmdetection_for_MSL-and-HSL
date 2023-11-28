@@ -77,18 +77,19 @@ class EncoderDecoder3D(Base3DSegmentor):
             Defaults to None.
     """  # noqa: E501
 
-    def __init__(self,
-                 backbone: ConfigType,
-                 decode_head: ConfigType,
-                 neck: OptConfigType = None,
-                 auxiliary_head: OptMultiConfig = None,
-                 loss_regularization: OptMultiConfig = None,
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None,
-                 data_preprocessor: OptConfigType = None,
-                 init_cfg: OptMultiConfig = None) -> None:
-        super(EncoderDecoder3D, self).__init__(
-            data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+    def __init__(
+        self,
+        backbone: ConfigType,
+        decode_head: ConfigType,
+        neck: OptConfigType = None,
+        auxiliary_head: OptMultiConfig = None,
+        loss_regularization: OptMultiConfig = None,
+        train_cfg: OptConfigType = None,
+        test_cfg: OptConfigType = None,
+        data_preprocessor: OptConfigType = None,
+        init_cfg: OptMultiConfig = None,
+    ) -> None:
+        super(EncoderDecoder3D, self).__init__(data_preprocessor=data_preprocessor, init_cfg=init_cfg)
         self.backbone = MODELS.build(backbone)
         if neck is not None:
             self.neck = MODELS.build(neck)
@@ -99,16 +100,14 @@ class EncoderDecoder3D(Base3DSegmentor):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
-        assert self.with_decode_head, \
-            '3D EncoderDecoder Segmentor should have a decode_head'
+        assert self.with_decode_head, "3D EncoderDecoder Segmentor should have a decode_head"
 
     def _init_decode_head(self, decode_head: ConfigType) -> None:
         """Initialize ``decode_head``."""
         self.decode_head = MODELS.build(decode_head)
         self.num_classes = self.decode_head.num_classes
 
-    def _init_auxiliary_head(self,
-                             auxiliary_head: OptMultiConfig = None) -> None:
+    def _init_auxiliary_head(self, auxiliary_head: OptMultiConfig = None) -> None:
         """Initialize ``auxiliary_head``."""
         if auxiliary_head is not None:
             if isinstance(auxiliary_head, list):
@@ -118,9 +117,7 @@ class EncoderDecoder3D(Base3DSegmentor):
             else:
                 self.auxiliary_head = MODELS.build(auxiliary_head)
 
-    def _init_loss_regularization(self,
-                                  loss_regularization: OptMultiConfig = None
-                                  ) -> None:
+    def _init_loss_regularization(self, loss_regularization: OptMultiConfig = None) -> None:
         """Initialize ``loss_regularization``."""
         if loss_regularization is not None:
             if isinstance(loss_regularization, list):
@@ -137,8 +134,7 @@ class EncoderDecoder3D(Base3DSegmentor):
             x = self.neck(x)
         return x
 
-    def encode_decode(self, batch_inputs: Tensor,
-                      batch_input_metas: List[dict]) -> Tensor:
+    def encode_decode(self, batch_inputs: Tensor, batch_input_metas: List[dict]) -> Tensor:
         """Encode points with backbone and decode into a semantic segmentation
         map of the same size as input.
 
@@ -151,13 +147,12 @@ class EncoderDecoder3D(Base3DSegmentor):
             Tensor: Segmentation logits of shape [B, num_classes, N].
         """
         x = self.extract_feat(batch_inputs)
-        seg_logits = self.decode_head.predict(x, batch_input_metas,
-                                              self.test_cfg)
+        seg_logits = self.decode_head.predict(x, batch_input_metas, self.test_cfg)
         return seg_logits
 
     def _decode_head_forward_train(
-            self, batch_inputs_dict: dict,
-            batch_data_samples: SampleList) -> Dict[str, Tensor]:
+        self, batch_inputs_dict: dict, batch_data_samples: SampleList
+    ) -> Dict[str, Tensor]:
         """Run forward function and calculate loss for decode head in training.
 
         Args:
@@ -170,10 +165,9 @@ class EncoderDecoder3D(Base3DSegmentor):
             Dict[str, Tensor]: A dictionary of loss components for decode head.
         """
         losses = dict()
-        loss_decode = self.decode_head.loss(batch_inputs_dict,
-                                            batch_data_samples, self.train_cfg)
+        loss_decode = self.decode_head.loss(batch_inputs_dict, batch_data_samples, self.train_cfg)
 
-        losses.update(add_prefix(loss_decode, 'decode'))
+        losses.update(add_prefix(loss_decode, "decode"))
         return losses
 
     def _auxiliary_head_forward_train(
@@ -197,14 +191,11 @@ class EncoderDecoder3D(Base3DSegmentor):
         losses = dict()
         if isinstance(self.auxiliary_head, nn.ModuleList):
             for idx, aux_head in enumerate(self.auxiliary_head):
-                loss_aux = aux_head.loss(batch_inputs_dict, batch_data_samples,
-                                         self.train_cfg)
-                losses.update(add_prefix(loss_aux, f'aux_{idx}'))
+                loss_aux = aux_head.loss(batch_inputs_dict, batch_data_samples, self.train_cfg)
+                losses.update(add_prefix(loss_aux, f"aux_{idx}"))
         else:
-            loss_aux = self.auxiliary_head.loss(batch_inputs_dict,
-                                                batch_data_samples,
-                                                self.train_cfg)
-            losses.update(add_prefix(loss_aux, 'aux'))
+            loss_aux = self.auxiliary_head.loss(batch_inputs_dict, batch_data_samples, self.train_cfg)
+            losses.update(add_prefix(loss_aux, "aux"))
 
         return losses
 
@@ -213,18 +204,15 @@ class EncoderDecoder3D(Base3DSegmentor):
         losses = dict()
         if isinstance(self.loss_regularization, nn.ModuleList):
             for idx, regularize_loss in enumerate(self.loss_regularization):
-                loss_regularize = dict(
-                    loss_regularize=regularize_loss(self.modules()))
-                losses.update(add_prefix(loss_regularize, f'regularize_{idx}'))
+                loss_regularize = dict(loss_regularize=regularize_loss(self.modules()))
+                losses.update(add_prefix(loss_regularize, f"regularize_{idx}"))
         else:
-            loss_regularize = dict(
-                loss_regularize=self.loss_regularization(self.modules()))
-            losses.update(add_prefix(loss_regularize, 'regularize'))
+            loss_regularize = dict(loss_regularize=self.loss_regularization(self.modules()))
+            losses.update(add_prefix(loss_regularize, "regularize"))
 
         return losses
 
-    def loss(self, batch_inputs_dict: dict,
-             batch_data_samples: SampleList) -> Dict[str, Tensor]:
+    def loss(self, batch_inputs_dict: dict, batch_data_samples: SampleList) -> Dict[str, Tensor]:
         """Calculate losses from a batch of inputs and data samples.
 
         Args:
@@ -242,7 +230,19 @@ class EncoderDecoder3D(Base3DSegmentor):
         """
 
         # extract features using backbone
-        points = torch.stack(batch_inputs_dict['points'])
+        if self.train_cfg.get("stack", True):
+            points = torch.stack(batch_inputs_dict["points"])
+        else:
+            points = batch_inputs_dict["points"]
+
+        # from my_tools.vis_points import vis
+        # import pdb
+
+        # tem = points.clone().detach().cpu().numpy()
+        # for i in range(tem.shape[0]):
+        #     vis(tem[i, :, :3])
+        # pdb.set_trace()
+
         x = self.extract_feat(points)
 
         losses = dict()
@@ -251,8 +251,7 @@ class EncoderDecoder3D(Base3DSegmentor):
         losses.update(loss_decode)
 
         if self.with_auxiliary_head:
-            loss_aux = self._auxiliary_head_forward_train(
-                x, batch_data_samples)
+            loss_aux = self._auxiliary_head_forward_train(x, batch_data_samples)
             losses.update(loss_aux)
 
         if self.with_regularization_loss:
@@ -262,11 +261,13 @@ class EncoderDecoder3D(Base3DSegmentor):
         return losses
 
     @staticmethod
-    def _input_generation(coords,
-                          patch_center: Tensor,
-                          coord_max: Tensor,
-                          feats: Tensor,
-                          use_normalized_coord: bool = False) -> Tensor:
+    def _input_generation(
+        coords,
+        patch_center: Tensor,
+        coord_max: Tensor,
+        feats: Tensor,
+        use_normalized_coord: bool = False,
+    ) -> Tensor:
         """Generating model input.
 
         Generate input by subtracting patch center and adding additional
@@ -297,13 +298,15 @@ class EncoderDecoder3D(Base3DSegmentor):
 
         return points
 
-    def _sliding_patch_generation(self,
-                                  points: Tensor,
-                                  num_points: int,
-                                  block_size: float,
-                                  sample_rate: float = 0.5,
-                                  use_normalized_coord: bool = False,
-                                  eps: float = 1e-3) -> Tuple[Tensor, Tensor]:
+    def _sliding_patch_generation(
+        self,
+        points: Tensor,
+        num_points: int,
+        block_size: float,
+        sample_rate: float = 0.5,
+        use_normalized_coord: bool = False,
+        eps: float = 1e-3,
+    ) -> Tuple[Tensor, Tensor]:
         """Sampling points in a sliding window fashion.
 
         First sample patches to cover all the input points.
@@ -336,17 +339,13 @@ class EncoderDecoder3D(Base3DSegmentor):
         coord_max = coords.max(0)[0]
         coord_min = coords.min(0)[0]
         stride = block_size * sample_rate
-        num_grid_x = int(
-            torch.ceil((coord_max[0] - coord_min[0] - block_size) /
-                       stride).item() + 1)
-        num_grid_y = int(
-            torch.ceil((coord_max[1] - coord_min[1] - block_size) /
-                       stride).item() + 1)
+        num_grid_x = int(torch.ceil((coord_max[0] - coord_min[0] - block_size) / stride).item() + 1)
+        num_grid_y = int(torch.ceil((coord_max[1] - coord_min[1] - block_size) / stride).item() + 1)
 
         patch_points, patch_idxs = [], []
         for idx_y in range(num_grid_y):
-            s_y = coord_min[1] + idx_y * stride
-            e_y = torch.min(s_y + block_size, coord_max[1])
+            s_y = coord_min[1] + idx_y * stride  # start
+            e_y = torch.min(s_y + block_size, coord_max[1])  # end
             s_y = e_y - block_size
             for idx_x in range(num_grid_x):
                 s_x = coord_min[0] + idx_x * stride
@@ -356,26 +355,27 @@ class EncoderDecoder3D(Base3DSegmentor):
                 # extract points within this patch
                 cur_min = torch.tensor([s_x, s_y, coord_min[2]]).to(device)
                 cur_max = torch.tensor([e_x, e_y, coord_max[2]]).to(device)
-                cur_choice = ((coords >= cur_min - eps) &
-                              (coords <= cur_max + eps)).all(dim=1)
+                cur_choice = ((coords >= cur_min - eps) & (coords <= cur_max + eps)).all(
+                    dim=1
+                )  # patch中所有的idx
 
                 if not cur_choice.any():  # no points in this patch
                     continue
 
                 # sample points in this patch to multiple batches
                 cur_center = cur_min + block_size / 2.0
-                point_idxs = torch.nonzero(cur_choice, as_tuple=True)[0]
+                point_idxs = torch.nonzero(cur_choice, as_tuple=True)[0]  # 获得非0元素
+
                 num_batch = int(np.ceil(point_idxs.shape[0] / num_points))
                 point_size = int(num_batch * num_points)
                 replace = point_size > 2 * point_idxs.shape[0]
                 num_repeat = point_size - point_idxs.shape[0]
                 if replace:  # duplicate
-                    point_idxs_repeat = point_idxs[torch.randint(
-                        0, point_idxs.shape[0],
-                        size=(num_repeat, )).to(device)]
+                    point_idxs_repeat = point_idxs[
+                        torch.randint(0, point_idxs.shape[0], size=(num_repeat,)).to(device)
+                    ]
                 else:
-                    point_idxs_repeat = point_idxs[torch.randperm(
-                        point_idxs.shape[0])[:num_repeat]]
+                    point_idxs_repeat = point_idxs[torch.randperm(point_idxs.shape[0])[:num_repeat]]
 
                 choices = torch.cat([point_idxs, point_idxs_repeat], dim=0)
                 choices = choices[torch.randperm(choices.shape[0])]
@@ -386,22 +386,22 @@ class EncoderDecoder3D(Base3DSegmentor):
                     cur_center,
                     coord_max,
                     feats[choices],
-                    use_normalized_coord=use_normalized_coord)
+                    use_normalized_coord=use_normalized_coord,
+                )
 
                 patch_points.append(point_batches)
                 patch_idxs.append(choices)
-
         patch_points = torch.cat(patch_points, dim=0)
         patch_idxs = torch.cat(patch_idxs, dim=0)
 
         # make sure all points are sampled at least once
-        assert torch.unique(patch_idxs).shape[0] == points.shape[0], \
-            'some points are not sampled in sliding inference'
+        assert (
+            torch.unique(patch_idxs).shape[0] == points.shape[0]
+        ), "some points are not sampled in sliding inference"
 
         return patch_points, patch_idxs
 
-    def slide_inference(self, point: Tensor, input_meta: dict,
-                        rescale: bool) -> Tensor:
+    def slide_inference(self, point: Tensor, input_meta: dict, rescale: bool) -> Tensor:
         """Inference by sliding-window with overlap.
 
         Args:
@@ -421,24 +421,27 @@ class EncoderDecoder3D(Base3DSegmentor):
 
         # patch_points is of shape [K*N, 3+C], patch_idxs is of shape [K*N]
         patch_points, patch_idxs = self._sliding_patch_generation(
-            point, num_points, block_size, sample_rate, use_normalized_coord)
+            point, num_points, block_size, sample_rate, use_normalized_coord
+        )
         feats_dim = patch_points.shape[1]
         seg_logits = []  # save patch predictions
 
         for batch_idx in range(0, patch_points.shape[0], batch_size):
-            batch_points = patch_points[batch_idx:batch_idx + batch_size]
+            batch_points = patch_points[batch_idx : batch_idx + batch_size]
             batch_points = batch_points.view(-1, num_points, feats_dim)
             # batch_seg_logit is of shape [B, num_classes, N]
-            batch_seg_logit = self.encode_decode(batch_points,
-                                                 [input_meta] * batch_size)
+            if not self.train_cfg.get("stack", True):
+                batch_points = [batch_points[i, ...] for i in range(batch_points.shape[0])]
+            batch_seg_logit = self.encode_decode(batch_points, [input_meta] * batch_size)
             batch_seg_logit = batch_seg_logit.transpose(1, 2).contiguous()
             seg_logits.append(batch_seg_logit.view(-1, self.num_classes))
 
         # aggregate per-point logits by indexing sum and dividing count
         seg_logits = torch.cat(seg_logits, dim=0)  # [K*N, num_classes]
         expand_patch_idxs = patch_idxs.unsqueeze(1).repeat(1, self.num_classes)
-        preds = point.new_zeros((point.shape[0], self.num_classes)).\
-            scatter_add_(dim=0, index=expand_patch_idxs, src=seg_logits)
+        preds = point.new_zeros((point.shape[0], self.num_classes)).scatter_add_(
+            dim=0, index=expand_patch_idxs, src=seg_logits
+        )
         count_mat = torch.bincount(patch_idxs)
         preds = preds / count_mat[:, None]
 
@@ -446,15 +449,13 @@ class EncoderDecoder3D(Base3DSegmentor):
 
         return preds.transpose(0, 1)  # to [num_classes, K*N]
 
-    def whole_inference(self, points: Tensor, batch_input_metas: List[dict],
-                        rescale: bool) -> Tensor:
+    def whole_inference(self, points: Tensor, batch_input_metas: List[dict], rescale: bool) -> Tensor:
         """Inference with full scene (one forward pass without sliding)."""
         seg_logit = self.encode_decode(points, batch_input_metas)
         # TODO: if rescale and voxelization segmentor
         return seg_logit
 
-    def inference(self, points: Tensor, batch_input_metas: List[dict],
-                  rescale: bool) -> Tensor:
+    def inference(self, points: Tensor, batch_input_metas: List[dict], rescale: bool) -> Tensor:
         """Inference with slide/whole style.
 
         Args:
@@ -467,21 +468,22 @@ class EncoderDecoder3D(Base3DSegmentor):
         Returns:
             Tensor: The output segmentation map.
         """
-        assert self.test_cfg.mode in ['slide', 'whole']
-        if self.test_cfg.mode == 'slide':
-            seg_logit = torch.stack([
-                self.slide_inference(point, input_meta, rescale)
-                for point, input_meta in zip(points, batch_input_metas)
-            ], 0)
+        assert self.test_cfg.mode in ["slide", "whole"]
+        if self.test_cfg.mode == "slide":
+            seg_logit = torch.stack(
+                [
+                    self.slide_inference(point, input_meta, rescale)
+                    for point, input_meta in zip(points, batch_input_metas)
+                ],
+                0,
+            )
         else:
-            seg_logit = self.whole_inference(points, batch_input_metas,
-                                             rescale)
+            seg_logit = self.whole_inference(points, batch_input_metas, rescale)
         return seg_logit
 
-    def predict(self,
-                batch_inputs_dict: dict,
-                batch_data_samples: SampleList,
-                rescale: bool = True) -> SampleList:
+    def predict(
+        self, batch_inputs_dict: dict, batch_data_samples: SampleList, rescale: bool = True
+    ) -> SampleList:
         """Simple test with single scene.
 
         Args:
@@ -514,17 +516,14 @@ class EncoderDecoder3D(Base3DSegmentor):
         for data_sample in batch_data_samples:
             batch_input_metas.append(data_sample.metainfo)
 
-        points = batch_inputs_dict['points']
+        points = batch_inputs_dict["points"]
         for point, input_meta in zip(points, batch_input_metas):
-            seg_logits = self.inference(
-                point.unsqueeze(0), [input_meta], rescale)[0]
+            seg_logits = self.inference(point.unsqueeze(0), [input_meta], rescale)[0]
             seg_logits_list.append(seg_logits)
 
         return self.postprocess_result(seg_logits_list, batch_data_samples)
 
-    def _forward(self,
-                 batch_inputs_dict: dict,
-                 batch_data_samples: OptSampleList = None) -> Tensor:
+    def _forward(self, batch_inputs_dict: dict, batch_data_samples: OptSampleList = None) -> Tensor:
         """Network forward process.
 
         Args:
@@ -540,6 +539,9 @@ class EncoderDecoder3D(Base3DSegmentor):
         Returns:
             Tensor: Forward output of model without any post-processes.
         """
-        points = torch.stack(batch_inputs_dict['points'])
+        if self.train_cfg.get("stack", True):
+            points = torch.stack(batch_inputs_dict["points"])
+        else:
+            points = batch_inputs_dict["points"]
         x = self.extract_feat(points)
         return self.decode_head.forward(x)
