@@ -1,0 +1,1 @@
+tensorboard --logdir=work_dirs/dual_kpfcnn_1xb6-cosine-80e_titan-seg/20231105_154527/vis_data
