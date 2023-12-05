@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-cd /home/bisifu/bsf/code/mmdetection3d/
+
+curdir=$(cd $(dirname $0); pwd)
+workdir=$(cd "$curdir/.."; pwd)
+echo "$workdir"
+export PYTHONPATH=$PYTHONPATH:$workdir
+cd $workdir
 
 # echo "sleep 3h!"
 # sleep 3h
@@ -20,9 +25,11 @@ point_transformer_=configs/point_transformer/point_transformer_1xb8-cosine-150e_
 
 # CONFIG=configs/paconv/paconv_ssg-cuda_8xb8-cosine-80e_titan-seg.py
 
-
-for CONFIG in {${point_transformer_},}
+GPU_num=$(nvidia-smi -L | wc -l)
+GPU_used=$(expr $GPU_num - 1)
+for CONFIG in {${dual_kpfcnn},}
 do 
+    CUDA_VISIBLE_DEVICES=$GPU_used \
     python tools/train.py \
         $CONFIG \
         # --amp \
