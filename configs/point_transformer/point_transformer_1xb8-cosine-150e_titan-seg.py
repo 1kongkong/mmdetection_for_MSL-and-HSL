@@ -77,7 +77,7 @@ model = dict(
 # train_dataloader = dict(batch_size=16)
 train_dataloader = dict(
     batch_size=8,
-    num_workers=8,
+    num_workers=16,
     dataset=dict(pipeline=train_pipeline),
 )
 
