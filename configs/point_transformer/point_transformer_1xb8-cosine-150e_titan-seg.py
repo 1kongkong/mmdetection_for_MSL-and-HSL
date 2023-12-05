@@ -100,4 +100,4 @@ default_hooks = dict(
 #     clip_grad=None,
 # )
 
-train_cfg = dict(by_epoch=True, max_epochs=100, val_interval=2)
+train_cfg = dict(by_epoch=True, max_epochs=150, val_interval=2)
