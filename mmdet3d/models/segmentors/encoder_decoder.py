@@ -89,7 +89,9 @@ class EncoderDecoder3D(Base3DSegmentor):
         data_preprocessor: OptConfigType = None,
         init_cfg: OptMultiConfig = None,
     ) -> None:
-        super(EncoderDecoder3D, self).__init__(data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+        super(EncoderDecoder3D, self).__init__(
+            data_preprocessor=data_preprocessor, init_cfg=init_cfg
+        )
         self.backbone = MODELS.build(backbone)
         if neck is not None:
             self.neck = MODELS.build(neck)
@@ -100,7 +102,9 @@ class EncoderDecoder3D(Base3DSegmentor):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
-        assert self.with_decode_head, "3D EncoderDecoder Segmentor should have a decode_head"
+        assert (
+            self.with_decode_head
+        ), "3D EncoderDecoder Segmentor should have a decode_head"
 
     def _init_decode_head(self, decode_head: ConfigType) -> None:
         """Initialize ``decode_head``."""
@@ -117,7 +121,9 @@ class EncoderDecoder3D(Base3DSegmentor):
             else:
                 self.auxiliary_head = MODELS.build(auxiliary_head)
 
-    def _init_loss_regularization(self, loss_regularization: OptMultiConfig = None) -> None:
+    def _init_loss_regularization(
+        self, loss_regularization: OptMultiConfig = None
+    ) -> None:
         """Initialize ``loss_regularization``."""
         if loss_regularization is not None:
             if isinstance(loss_regularization, list):
@@ -134,7 +140,9 @@ class EncoderDecoder3D(Base3DSegmentor):
             x = self.neck(x)
         return x
 
-    def encode_decode(self, batch_inputs: Tensor, batch_input_metas: List[dict]) -> Tensor:
+    def encode_decode(
+        self, batch_inputs: Tensor, batch_input_metas: List[dict]
+    ) -> Tensor:
         """Encode points with backbone and decode into a semantic segmentation
         map of the same size as input.
 
@@ -165,7 +173,9 @@ class EncoderDecoder3D(Base3DSegmentor):
             Dict[str, Tensor]: A dictionary of loss components for decode head.
         """
         losses = dict()
-        loss_decode = self.decode_head.loss(batch_inputs_dict, batch_data_samples, self.train_cfg)
+        loss_decode = self.decode_head.loss(
+            batch_inputs_dict, batch_data_samples, self.train_cfg
+        )
 
         losses.update(add_prefix(loss_decode, "decode"))
         return losses
@@ -191,10 +201,14 @@ class EncoderDecoder3D(Base3DSegmentor):
         losses = dict()
         if isinstance(self.auxiliary_head, nn.ModuleList):
             for idx, aux_head in enumerate(self.auxiliary_head):
-                loss_aux = aux_head.loss(batch_inputs_dict, batch_data_samples, self.train_cfg)
+                loss_aux = aux_head.loss(
+                    batch_inputs_dict, batch_data_samples, self.train_cfg
+                )
                 losses.update(add_prefix(loss_aux, f"aux_{idx}"))
         else:
-            loss_aux = self.auxiliary_head.loss(batch_inputs_dict, batch_data_samples, self.train_cfg)
+            loss_aux = self.auxiliary_head.loss(
+                batch_inputs_dict, batch_data_samples, self.train_cfg
+            )
             losses.update(add_prefix(loss_aux, "aux"))
 
         return losses
@@ -207,12 +221,16 @@ class EncoderDecoder3D(Base3DSegmentor):
                 loss_regularize = dict(loss_regularize=regularize_loss(self.modules()))
                 losses.update(add_prefix(loss_regularize, f"regularize_{idx}"))
         else:
-            loss_regularize = dict(loss_regularize=self.loss_regularization(self.modules()))
+            loss_regularize = dict(
+                loss_regularize=self.loss_regularization(self.modules())
+            )
             losses.update(add_prefix(loss_regularize, "regularize"))
 
         return losses
 
-    def loss(self, batch_inputs_dict: dict, batch_data_samples: SampleList) -> Dict[str, Tensor]:
+    def loss(
+        self, batch_inputs_dict: dict, batch_data_samples: SampleList
+    ) -> Dict[str, Tensor]:
         """Calculate losses from a batch of inputs and data samples.
 
         Args:
@@ -339,8 +357,12 @@ class EncoderDecoder3D(Base3DSegmentor):
         coord_max = coords.max(0)[0]
         coord_min = coords.min(0)[0]
         stride = block_size * sample_rate
-        num_grid_x = int(torch.ceil((coord_max[0] - coord_min[0] - block_size) / stride).item() + 1)
-        num_grid_y = int(torch.ceil((coord_max[1] - coord_min[1] - block_size) / stride).item() + 1)
+        num_grid_x = int(
+            torch.ceil((coord_max[0] - coord_min[0] - block_size) / stride).item() + 1
+        )
+        num_grid_y = int(
+            torch.ceil((coord_max[1] - coord_min[1] - block_size) / stride).item() + 1
+        )
 
         patch_points, patch_idxs = [], []
         for idx_y in range(num_grid_y):
@@ -355,7 +377,9 @@ class EncoderDecoder3D(Base3DSegmentor):
                 # extract points within this patch
                 cur_min = torch.tensor([s_x, s_y, coord_min[2]]).to(device)
                 cur_max = torch.tensor([e_x, e_y, coord_max[2]]).to(device)
-                cur_choice = ((coords >= cur_min - eps) & (coords <= cur_max + eps)).all(
+                cur_choice = (
+                    (coords >= cur_min - eps) & (coords <= cur_max + eps)
+                ).all(
                     dim=1
                 )  # patch中所有的idx
 
@@ -372,10 +396,14 @@ class EncoderDecoder3D(Base3DSegmentor):
                 num_repeat = point_size - point_idxs.shape[0]
                 if replace:  # duplicate
                     point_idxs_repeat = point_idxs[
-                        torch.randint(0, point_idxs.shape[0], size=(num_repeat,)).to(device)
+                        torch.randint(0, point_idxs.shape[0], size=(num_repeat,)).to(
+                            device
+                        )
                     ]
                 else:
-                    point_idxs_repeat = point_idxs[torch.randperm(point_idxs.shape[0])[:num_repeat]]
+                    point_idxs_repeat = point_idxs[
+                        torch.randperm(point_idxs.shape[0])[:num_repeat]
+                    ]
 
                 choices = torch.cat([point_idxs, point_idxs_repeat], dim=0)
                 choices = choices[torch.randperm(choices.shape[0])]
@@ -431,8 +459,12 @@ class EncoderDecoder3D(Base3DSegmentor):
             batch_points = batch_points.view(-1, num_points, feats_dim)
             # batch_seg_logit is of shape [B, num_classes, N]
             if not self.train_cfg.get("stack", True):
-                batch_points = [batch_points[i, ...] for i in range(batch_points.shape[0])]
-            batch_seg_logit = self.encode_decode(batch_points, [input_meta] * batch_size)
+                batch_points = [
+                    batch_points[i, ...] for i in range(batch_points.shape[0])
+                ]
+            batch_seg_logit = self.encode_decode(
+                batch_points, [input_meta] * batch_size
+            )
             batch_seg_logit = batch_seg_logit.transpose(1, 2).contiguous()
             seg_logits.append(batch_seg_logit.view(-1, self.num_classes))
 
@@ -449,13 +481,17 @@ class EncoderDecoder3D(Base3DSegmentor):
 
         return preds.transpose(0, 1)  # to [num_classes, K*N]
 
-    def whole_inference(self, points: Tensor, batch_input_metas: List[dict], rescale: bool) -> Tensor:
+    def whole_inference(
+        self, points: Tensor, batch_input_metas: List[dict], rescale: bool
+    ) -> Tensor:
         """Inference with full scene (one forward pass without sliding)."""
         seg_logit = self.encode_decode(points, batch_input_metas)
         # TODO: if rescale and voxelization segmentor
         return seg_logit
 
-    def inference(self, points: Tensor, batch_input_metas: List[dict], rescale: bool) -> Tensor:
+    def inference(
+        self, points: Tensor, batch_input_metas: List[dict], rescale: bool
+    ) -> Tensor:
         """Inference with slide/whole style.
 
         Args:
@@ -482,7 +518,10 @@ class EncoderDecoder3D(Base3DSegmentor):
         return seg_logit
 
     def predict(
-        self, batch_inputs_dict: dict, batch_data_samples: SampleList, rescale: bool = True
+        self,
+        batch_inputs_dict: dict,
+        batch_data_samples: SampleList,
+        rescale: bool = True,
     ) -> SampleList:
         """Simple test with single scene.
 
@@ -520,10 +559,13 @@ class EncoderDecoder3D(Base3DSegmentor):
         for point, input_meta in zip(points, batch_input_metas):
             seg_logits = self.inference(point.unsqueeze(0), [input_meta], rescale)[0]
             seg_logits_list.append(seg_logits)
+        torch.cuda.empty_cache()
 
         return self.postprocess_result(seg_logits_list, batch_data_samples)
 
-    def _forward(self, batch_inputs_dict: dict, batch_data_samples: OptSampleList = None) -> Tensor:
+    def _forward(
+        self, batch_inputs_dict: dict, batch_data_samples: OptSampleList = None
+    ) -> Tensor:
         """Network forward process.
 
         Args:

@@ -83,7 +83,9 @@ class KPFCNNBackbone(BaseModule):
                             radius[i - 1] if radius else radius,
                             k_neighbor,
                             weight_norm,
-                            strided=True if j == len(self.channel_list[i]) - 1 else False,
+                            strided=True
+                            if j == len(self.channel_list[i]) - 1
+                            else False,
                             norm_cfg=norm_cfg,
                             act_cfg=act_cfg,
                         )
@@ -102,7 +104,9 @@ class KPFCNNBackbone(BaseModule):
         boundary_min = torch.min(points, dim=0)[0]
         boundary_max = torch.max(points, dim=0)[0]
         voxel_nums = ((boundary_max - boundary_min) / voxel_size + 1).to(torch.int32)
-        sampled_point_cloud = torch.zeros((voxel_nums[0] * voxel_nums[1] * voxel_nums[2], 3)).to("cuda")
+        sampled_point_cloud = torch.zeros(
+            (voxel_nums[0] * voxel_nums[1] * voxel_nums[2], 3)
+        ).to("cuda")
         voxel_nums[2] = voxel_nums[0] * voxel_nums[1]
         voxel_nums[1] = voxel_nums[0]
         voxel_nums[0] = 1
@@ -124,7 +128,9 @@ class KPFCNNBackbone(BaseModule):
         device = points.device
         patch_len_pre_sum = self._len2pre_sum(patch_len)
         downsample_points_list = [points]
-        downsample_len_list = [torch.tensor(patch_len, dtype=torch.int32, device=device)]
+        downsample_len_list = [
+            torch.tensor(patch_len, dtype=torch.int32, device=device)
+        ]
 
         for voxel_size in self.voxel_size:
             downsample_len = []
@@ -132,10 +138,14 @@ class KPFCNNBackbone(BaseModule):
             for i in range(len(patch_len)):
                 idx_left = patch_len_pre_sum[i]
                 idx_right = patch_len_pre_sum[i + 1]
-                downsample_points.append(self._voxel_sample(points[idx_left:idx_right, :], voxel_size))
+                downsample_points.append(
+                    self._voxel_sample(points[idx_left:idx_right, :], voxel_size)
+                )
                 downsample_len.append(downsample_points[-1].shape[0])
             downsample_points_list.append(torch.cat(downsample_points, dim=0))
-            downsample_len_list.append(torch.tensor(downsample_len, dtype=torch.int32, device=device))
+            downsample_len_list.append(
+                torch.tensor(downsample_len, dtype=torch.int32, device=device)
+            )
         return downsample_points_list, downsample_len_list
 
     def _knn_query(self, points):
@@ -149,10 +159,16 @@ class KPFCNNBackbone(BaseModule):
         idx_self = []
         idx_downsample = []
         for i in range(len(points)):
-            idx_self.append(knn(self.k_neighbor, points[i], points[i], False).transpose(1, 2).contiguous())
+            idx_self.append(
+                knn(self.k_neighbor, points[i], points[i], False)
+                .transpose(1, 2)
+                .contiguous()
+            )
             if i != 0:
                 idx_downsample.append(
-                    knn(self.k_neighbor, points[i - 1], points[i], False).transpose(1, 2).contiguous()
+                    knn(self.k_neighbor, points[i - 1], points[i], False)
+                    .transpose(1, 2)
+                    .contiguous()
                 )
         return idx_self, idx_downsample
 
@@ -170,12 +186,26 @@ class KPFCNNBackbone(BaseModule):
         idx_downsample = []
 
         for i in range(len(points)):
-            idx = ball_query(0, radius[i], self.k_neighbor, points[i], points[i], length[i], length[i])
+            idx = ball_query(
+                0,
+                radius[i],
+                self.k_neighbor,
+                points[i],
+                points[i],
+                length[i],
+                length[i],
+            )
 
             idx_self.append(idx)
             if i != 0:
                 idx = ball_query(
-                    0, radius[i], self.k_neighbor, points[i - 1], points[i], length[i - 1], length[i]
+                    0,
+                    radius[i],
+                    self.k_neighbor,
+                    points[i - 1],
+                    points[i],
+                    length[i - 1],
+                    length[i],
                 )
                 idx_downsample.append(idx)
 
@@ -224,14 +254,20 @@ class KPFCNNBackbone(BaseModule):
         # down sample and query (rand or voxel / knn or ball)
         if isvoxel:
             points = points.squeeze(0)
-            points_downsample, length_downsample = self._voxel_sample_batch(points, length)
-            idx_self, idx_downsample = self._ball_query(points_downsample, length_downsample, self.radius)
+            points_downsample, length_downsample = self._voxel_sample_batch(
+                points, length
+            )
+            idx_self, idx_downsample = self._ball_query(
+                points_downsample, length_downsample, self.radius
+            )
             points_downsample = [x.unsqueeze(0) for x in points_downsample]
             idx_self = [x.unsqueeze(0) for x in idx_self]
             idx_downsample = [x.unsqueeze(0) for x in idx_downsample]
         else:
             points_downsample = self._random_sample(points)  # [0,1,2,3,4]
-            idx_self, idx_downsample = self._knn_query(points_downsample)  # [0,1,2,3,4],[0,1,2,3]
+            idx_self, idx_downsample = self._knn_query(
+                points_downsample
+            )  # [0,1,2,3,4],[0,1,2,3]
             length_downsample = [None for _ in range(len(self.kpconv_channels))]
 
         layer_num = 0
@@ -240,7 +276,8 @@ class KPFCNNBackbone(BaseModule):
         for i in range(len(self.kpconv_channels)):
             for j in range(len(self.kpconv_channels[i])):
                 if (
-                    j != len(self.kpconv_channels[i]) - 1 or i == len(self.kpconv_channels) - 1
+                    j != len(self.kpconv_channels[i]) - 1
+                    or i == len(self.kpconv_channels) - 1
                 ):  # 最后一层不进行下采样，其它层的最后一次卷积进行下采样
                     _, features, _ = self.kpconvs[layer_num](
                         points_downsample[i],
@@ -262,5 +299,7 @@ class KPFCNNBackbone(BaseModule):
                     )
                 layer_num += 1
         feature_set.append(features)
-        out = dict(points=points_downsample, features=feature_set, length=length_downsample)
+        out = dict(
+            points=points_downsample, features=feature_set, length=length_downsample
+        )
         return out
