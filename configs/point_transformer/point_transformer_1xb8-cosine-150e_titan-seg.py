@@ -77,7 +77,7 @@ model = dict(
 # train_dataloader = dict(batch_size=16)
 train_dataloader = dict(
     batch_size=8,
-    num_workers=8,
+    num_workers=16,
     dataset=dict(pipeline=train_pipeline),
 )
 
@@ -100,4 +100,4 @@ default_hooks = dict(
 #     clip_grad=None,
 # )
 
-train_cfg = dict(by_epoch=True, max_epochs=100, val_interval=2)
+train_cfg = dict(by_epoch=True, max_epochs=150, val_interval=2)
