@@ -4,12 +4,9 @@ from mmdet3d.visualization import Det3DLocalVisualizer
 from tools.dataset_converters.ply import read_ply
 import pdb
 import cv2
-from tqdm import tqdm
-from numba import jit, njit
 import time
-from mmengine.utils import track_parallel_progress
 
-semseg_cmap = (
+semseg_cmap_titan = (
     np.array(
         [
             [159, 159, 165],
@@ -20,15 +17,32 @@ semseg_cmap = (
             [10, 77, 252],
             [190, 0, 0],
             [181, 121, 11],
-            [126, 254, 255],
-            [255, 255, 0],
-            [227, 207, 87],
-            [85, 102, 0],
-            [210, 180, 140],
         ]
     )
     # / 255
 )
+semseg_cmap_sensat = (
+    np.array(
+        [
+            [85, 107, 47],
+            [0, 255, 0],
+            [163, 148, 128],
+            [41, 49, 101],
+            [0, 0, 0],
+            [0, 0, 255],
+            [255, 0, 255],
+            [255, 255, 10],
+            [89, 47, 95],
+            [213, 58, 116],
+            [182, 67, 47],
+            [0, 255, 255],
+            [0, 191, 255],
+        ]
+    )
+    # / 255
+)
+
+semseg_cmap_dict = {"titan": semseg_cmap_titan, "sensaturban": semseg_cmap_sensat}
 
 
 def draw_seg_photo_acc(bev_map, points):
@@ -51,6 +65,7 @@ def draw_seg_photo_acc(bev_map, points):
             # pdb.set_trace()
     return bev_map
 
+
 def draw_seg_photo(points, grid_size, save_path):
     points[:, :3] = points[:, :3] - np.min(points[:, :3], axis=0)
     size = np.max(points[:, :2], axis=0) // grid_size + 1
@@ -72,24 +87,30 @@ def voxel_sample(points, grid_size):
     boundary_min = np.min(points, axis=0)
     boundary_max = np.max(points, axis=0)
     sample_voxel_size = [grid_size, grid_size, grid_size]
-    voxel_nums = ((boundary_max - boundary_min) / sample_voxel_size + 1).astype(np.int32)
+    voxel_nums = ((boundary_max - boundary_min) / sample_voxel_size + 1).astype(
+        np.uint64
+    )
     choices = np.zeros((voxel_nums[0] * voxel_nums[1] * voxel_nums[2]))
     voxel_nums[2] = voxel_nums[0] * voxel_nums[1]
     voxel_nums[1] = voxel_nums[0]
     voxel_nums[0] = 1
-    voxel_indices = ((points - boundary_min) / sample_voxel_size).astype(np.int32)
+    voxel_indices = ((points - boundary_min) / sample_voxel_size).astype(np.uint64)
     # get idx
     voxel_indices = np.sum(voxel_indices * voxel_nums, axis=1)
     # down sample
     unique_indices = np.unique(voxel_indices)
     choices[voxel_indices] = idx
-    choices = choices[unique_indices].astype(np.int32)
+    choices = choices[unique_indices].astype(np.uint64)
     return choices
 
 
 if __name__ == "__main__":
-    root = "/home/bisifu/bsf/code/mmdetection3d/work_dirs/dgcnn_1xb6-cosine-100e_titan-seg/20231121_092442"
+    root = "/home/bisifu/bsf/code/mmdetection3d/work_dirs/dual_kpfcnn_1xb6-cosine-100e_sensaturban-seg/20231203_103749"
     paths = glob.glob(root + "/*.ply")
+    for key in semseg_cmap_dict.keys():
+        if key in root:
+            semseg_cmap = semseg_cmap_dict[key]
+            break
     for path in paths:
         print(path)
         data = read_ply(path)
