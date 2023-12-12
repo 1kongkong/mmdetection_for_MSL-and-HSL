@@ -1,4 +1,8 @@
-cd /home/bisifu/bsf/code/mmdetection3d
+curdir=$(cd $(dirname $0); pwd)
+workdir=$(cd "$curdir/.."; pwd)
+echo "$workdir"
+export PYTHONPATH=$PYTHONPATH:$workdir
+cd $workdir
 
 pcd_path=data/Titan/points
 # work_dirs/dgcnn_1xb6-cosine-100e_titan-seg/20231121_092442/dgcnn_1xb6-cosine-100e_titan-seg/best_miou_epoch_54.pth

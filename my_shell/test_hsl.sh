@@ -1,4 +1,8 @@
-cd /home/bisifu/bsf/code/mmdetection3d
+curdir=$(cd $(dirname $0); pwd)
+workdir=$(cd "$curdir/.."; pwd)
+echo "$workdir"
+export PYTHONPATH=$PYTHONPATH:$workdir
+cd $workdir
 
 pcd_path=data/mmdetection3d_data/HSL/points
 # config=configs/pointnet2/pointnet2_msg_2xb16-cosine-80e_hsl-seg.py

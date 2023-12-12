@@ -27,7 +27,7 @@ point_transformer_=configs/point_transformer/point_transformer_1xb8-cosine-150e_
 
 GPU_num=$(nvidia-smi -L | wc -l)
 GPU_used=$(expr $GPU_num - 1)
-for CONFIG in {${dual_kpfcnn},}
+for CONFIG in {${point_transformer_},}
 do 
     CUDA_VISIBLE_DEVICES=$GPU_used \
     python tools/train.py \
