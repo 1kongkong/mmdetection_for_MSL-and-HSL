@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from time import sleep
 import cv2
 
-semseg_cmap = (
+semseg_cmap_titan = (
     np.array(
         [
             [159, 159, 165],
@@ -18,15 +18,33 @@ semseg_cmap = (
             [10, 77, 252],
             [190, 0, 0],
             [181, 121, 11],
-            [126, 254, 255],
-            [255, 255, 0],
-            [227, 207, 87],
-            [85, 102, 0],
-            [210, 180, 140],
         ]
     )
     / 255
 )
+semseg_cmap_sensat = (
+    np.array(
+        [
+            [85, 107, 47],
+            [0, 255, 0],
+            [163, 148, 128],
+            [41, 49, 101],
+            [0, 0, 0],
+            [0, 0, 255],
+            [255, 0, 255],
+            [255, 255, 10],
+            [89, 47, 95],
+            [213, 58, 116],
+            [182, 67, 47],
+            [0, 255, 255],
+            [0, 191, 255],
+        ]
+    )
+    / 255
+)
+
+semseg_cmap_dict = {"titan": semseg_cmap_titan, "sensaturban": semseg_cmap_sensat}
+
 semseg_right_cmap = (
     np.array(
         [
@@ -51,6 +69,10 @@ def vis(point_cloud):
 
 
 def point_visual(xyz, label, save_path):
+    for key in semseg_cmap_dict.keys():
+        if key in save_path:
+            semseg_cmap = semseg_cmap_dict[key]
+            break
     label = np.array(label[:, 0], dtype="int64")
     color = semseg_cmap[label, :]
 
@@ -68,16 +90,17 @@ def point_visual(xyz, label, save_path):
     vis.update_geometry(pcd_gt)
     vis.poll_events()
     vis.update_renderer()
+    pdb.set_trace()
     # vis.capture_screen_image(save_path)
     # vis.destroy_window()
-    color = vis.capture_screen_float_buffer(True)
-    color = np.asarray(color) * 255
-    color = cv2.cvtColor(color, cv2.COLOR_RGB2BGR)
-    cv2.imwrite(save_path, color)
+    # color = vis.capture_screen_float_buffer(True)
+    # color = np.asarray(color) * 255
+    # color = cv2.cvtColor(color, cv2.COLOR_RGB2BGR)
+    # cv2.imwrite(save_path, color)
 
 
 if __name__ == "__main__":
-    root = "/home/bisifu/bsf/code/mmdetection3d/work_dirs/dgcnn_1xb6-cosine-100e_titan-seg/20231121_092442"
+    root = "/home/bisifu/bsf/code/mmdetection3d/work_dirs/dual_kpfcnn_1xb6-cosine-100e_sensaturban-seg/20231203_103749"
     paths = glob.glob(root + "/*.ply")
     for path in paths:
         data = read_ply(path)
@@ -85,4 +108,4 @@ if __name__ == "__main__":
         points[:, :3] = points[:, :3] - np.min(points[:, :3], axis=0)
         save_path = path.replace(".ply", ".jpg")
         point_visual(points[:, :3], points[:, -1:], save_path)
-        pdb.set_trace()
+        # pdb.set_trace()
