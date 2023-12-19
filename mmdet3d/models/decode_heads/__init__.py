@@ -7,9 +7,10 @@ from .paconv_head import PAConvHead
 from .pointnet2_head import PointNet2Head
 from .kpfcnn_head import KPFCNNHead
 from .point_transformer_head import PointTransformerHead
+from .randlanet_head import RandLANetHead
 
 __all__ = [
     'PointNet2Head', 'DGCNNHead', 'PAConvHead', 'Cylinder3DHead',
     'Base3DDecodeHead', 'MinkUNetHead',
-    'KPFCNNHead', 'PointTransformerHead'
+    'KPFCNNHead', 'PointTransformerHead', 'RandLANetHead'
 ]
