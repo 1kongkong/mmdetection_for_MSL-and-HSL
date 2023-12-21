@@ -11,6 +11,7 @@ from mmdet3d.utils import ConfigType, OptConfigType, OptMultiConfig
 from ...structures.det3d_data_sample import OptSampleList, SampleList
 from ..utils import add_prefix
 from .base import Base3DSegmentor
+from scipy.spatial import KDTree
 
 
 @MODELS.register_module()
@@ -481,6 +482,113 @@ class EncoderDecoder3D(Base3DSegmentor):
 
         return preds.transpose(0, 1)  # to [num_classes, K*N]
 
+    def voxel_sample(self, points, grid_size):
+        is_tensor = False
+        device = "cpu"
+        if torch.is_tensor(points):
+            device = points.device
+            if device.type == "cuda":
+                points = np.array(points.clone().cpu().detach())
+            else:
+                points = np.array(points.clone().detach())
+            is_tensor = True
+        idx = np.arange(points.shape[0])
+        # voxelization with idx
+        boundary_min = np.min(points, axis=0)
+        boundary_max = np.max(points, axis=0)
+        sample_voxel_size = [grid_size, grid_size, grid_size]
+        voxel_nums = ((boundary_max - boundary_min) / sample_voxel_size + 1).astype(
+            np.uint64
+        )
+        choices = np.zeros((voxel_nums[0] * voxel_nums[1] * voxel_nums[2]))
+        voxel_nums[2] = voxel_nums[0] * voxel_nums[1]
+        voxel_nums[1] = voxel_nums[0]
+        voxel_nums[0] = 1
+        voxel_indices = ((points - boundary_min) / sample_voxel_size).astype(np.uint64)
+        # get idx
+        voxel_indices = np.sum(voxel_indices * voxel_nums, axis=1)
+        # down sample
+        unique_indices = np.unique(voxel_indices)
+        choices[voxel_indices] = idx
+        choices = choices[unique_indices].astype(np.int64)
+        if is_tensor:
+            choices = torch.from_numpy(choices)
+            if device != "cpu":
+                choices = choices.to(device)
+
+        return choices
+
+    def gridsample_slide_inference(self, point: Tensor, input_meta: dict) -> Tensor:
+        """Inference by gridsample and sliding-window with overlap.
+        Args:
+            point (Tensor): Input points of shape [N, 3+C].
+            input_meta (dict): Meta information of input sample.
+
+        Returns:
+            Tensor: The output segmentation map of shape [num_classes, N].
+        """
+        if "titan" in input_meta["lidar_path"].lower():
+            grid_size = 0.4
+        elif "sensaturban" in input_meta["lidar_path"].lower():
+            grid_size = 0.2
+        else:
+            raise NotImplementedError
+
+        choice = self.voxel_sample(point[:, :3], grid_size)
+        point_sub = point[choice, :].contiguous()
+
+        # 创建映射索引
+        tree = KDTree(point_sub[:, :3].cpu().numpy())
+        _, idx = tree.query(point[:, :3].cpu().numpy(), k=3, workers=4)
+        idx = torch.tensor(idx, device=point_sub.device, dtype=torch.long)
+
+        num_points = self.test_cfg.num_points
+        block_size = self.test_cfg.block_size
+        sample_rate = self.test_cfg.sample_rate
+        use_normalized_coord = self.test_cfg.use_normalized_coord
+        batch_size = self.test_cfg.batch_size * num_points
+
+        # patch_points is of shape [K*N, 3+C], patch_idxs is of shape [K*N]
+        patch_points, patch_idxs = self._sliding_patch_generation(
+            point_sub, num_points, block_size, sample_rate, use_normalized_coord
+        )
+        feats_dim = patch_points.shape[1]
+        seg_logits = []  # save patch predictions
+
+        for batch_idx in range(0, patch_points.shape[0], batch_size):
+            batch_points = patch_points[batch_idx : batch_idx + batch_size]
+            batch_points = batch_points.view(-1, num_points, feats_dim)
+            # batch_seg_logit is of shape [B, num_classes, N]
+            if not self.train_cfg.get("stack", True):
+                batch_points = [
+                    batch_points[i, ...] for i in range(batch_points.shape[0])
+                ]
+            batch_seg_logit = self.encode_decode(
+                batch_points, [input_meta] * batch_size
+            )
+            batch_seg_logit = batch_seg_logit.transpose(1, 2).contiguous()
+            seg_logits.append(batch_seg_logit.view(-1, self.num_classes))
+
+        # aggregate per-point logits by indexing sum and dividing count
+        seg_logits = torch.cat(seg_logits, dim=0)  # [K*N, num_classes]
+        expand_patch_idxs = patch_idxs.unsqueeze(1).repeat(1, self.num_classes)
+        preds_sub = point_sub.new_zeros(
+            (point_sub.shape[0], self.num_classes)
+        ).scatter_add_(dim=0, index=expand_patch_idxs, src=seg_logits)
+        count_mat = torch.bincount(patch_idxs)
+        preds_sub = preds_sub / count_mat[:, None]
+
+        # 清理显存
+        del point, point_sub, patch_points, patch_idxs, expand_patch_idxs
+        torch.cuda.empty_cache()
+
+        preds_sub = preds_sub.half()
+        preds = preds_sub[idx, :]
+        if len(preds.shape) == 3:
+            preds = torch.mean(preds, dim=-2)
+
+        return preds.transpose(0, 1).contiguous()  # to [num_classes, K*N]
+
     def whole_inference(
         self, points: Tensor, batch_input_metas: List[dict], rescale: bool
     ) -> Tensor:
@@ -504,11 +612,19 @@ class EncoderDecoder3D(Base3DSegmentor):
         Returns:
             Tensor: The output segmentation map.
         """
-        assert self.test_cfg.mode in ["slide", "whole"]
+        assert self.test_cfg.mode in ["slide", "whole", "grid_slide"]
         if self.test_cfg.mode == "slide":
             seg_logit = torch.stack(
                 [
                     self.slide_inference(point, input_meta, rescale)
+                    for point, input_meta in zip(points, batch_input_metas)
+                ],
+                0,
+            )
+        elif self.test_cfg.mode == "grid_slide":
+            seg_logit = torch.stack(
+                [
+                    self.gridsample_slide_inference(point, input_meta)
                     for point, input_meta in zip(points, batch_input_metas)
                 ],
                 0,
