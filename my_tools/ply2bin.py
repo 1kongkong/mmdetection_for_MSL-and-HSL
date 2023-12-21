@@ -31,9 +31,7 @@ def voxel_sample(points, grid_size):
 
 
 if __name__ == "__main__":
-    root = (
-        "/home/bisifu/bsf/code/mmdetection3d/data/mmdetection3d_data/SensatUrban/test"
-    )
+    root = "/home/bisifu/code/mmdetection3d/data/SensatUrban/test"
     paths = glob.glob(os.path.join(root, "*.ply"))
     for path in paths:
         print(path)
@@ -42,8 +40,8 @@ if __name__ == "__main__":
             (data["x"], data["y"], data["z"], data["red"], data["green"], data["blue"])
         ).T
         points[:, 3:] /= 255
-        idx = voxel_sample(points[:, :3], 0.15)
+        # idx = voxel_sample(points[:, :3], 0.15)
         # pdb.set_trace()
         save_path = path.replace(".ply", ".bin")
         with open(save_path, "wb") as f:
-            f.write(points[idx, :].tobytes())
+            f.write(points.tobytes())
