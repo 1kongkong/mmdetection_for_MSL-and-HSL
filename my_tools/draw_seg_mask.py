@@ -5,6 +5,7 @@ from tools.dataset_converters.ply import read_ply
 import pdb
 import cv2
 import time
+import argparse
 
 semseg_cmap_titan = (
     np.array(
@@ -105,10 +106,15 @@ def voxel_sample(points, grid_size):
 
 
 if __name__ == "__main__":
-    root = "/home/bisifu/bsf/code/mmdetection3d/work_dirs/dual_kpfcnn_1xb6-cosine-100e_sensaturban-seg/20231203_103749"
-    paths = glob.glob(root + "/*.ply")
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--path", dest="path", type=str, help="the path of model workdir"
+    )
+    args = parser.parse_args()
+
+    paths = glob.glob(args.path + "/*.ply")
     for key in semseg_cmap_dict.keys():
-        if key in root:
+        if key in args.path:
             semseg_cmap = semseg_cmap_dict[key]
             break
     for path in paths:
