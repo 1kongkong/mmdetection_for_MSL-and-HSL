@@ -14,7 +14,7 @@ def voxel_sample(points, grid_size):
     boundary_max = np.max(points, axis=0)
     sample_voxel_size = [grid_size, grid_size, grid_size]
     voxel_nums = ((boundary_max - boundary_min) / sample_voxel_size + 1).astype(
-        np.uint32
+        np.uint64
     )
     print(voxel_nums)
     print(voxel_nums[0] * voxel_nums[1] * voxel_nums[2])
@@ -22,13 +22,13 @@ def voxel_sample(points, grid_size):
     voxel_nums[2] = voxel_nums[0] * voxel_nums[1]
     voxel_nums[1] = voxel_nums[0]
     voxel_nums[0] = 1
-    voxel_indices = ((points - boundary_min) / sample_voxel_size).astype(np.int32)
+    voxel_indices = ((points - boundary_min) / sample_voxel_size).astype(np.uint64)
     # get idx
     voxel_indices = np.sum(voxel_indices * voxel_nums, axis=1)
     # down sample
     unique_indices = np.unique(voxel_indices)
     choices[voxel_indices] = idx
-    choices = choices[unique_indices].astype(np.int32)
+    choices = choices[unique_indices].astype(np.uint64)
     return choices
 
 
@@ -91,7 +91,7 @@ class SensatUrbanData(object):
             .T
         )
         point[:, 3:] /= 255.0
-        idx = voxel_sample(point[:, :3], 0.15)
+        idx = voxel_sample(point[:, :3], 0.2)
         label = cloud["class"].astype(np.int64)
         point = point[idx, :]
         label = label[idx]
