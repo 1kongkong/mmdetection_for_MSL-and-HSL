@@ -6,7 +6,15 @@ _base_ = [
 ]
 
 # dataset settings
-class_names = ("Impervious Ground", "Grass", "Building", "Tree", "Car", "Power Line", "Bare land")
+class_names = (
+    "Impervious Ground",
+    "Grass",
+    "Building",
+    "Tree",
+    "Car",
+    "Power Line",
+    "Bare land",
+)
 
 num_points = 8192
 block_size = 30
@@ -39,7 +47,11 @@ train_pipeline = [
         enlarge_size=0.2,
         min_unique_num=None,
     ),
-    dict(type="GlobalRotScaleTrans", rot_range=[-3.14159264, 3.14159264], scale_ratio_range=[0.95, 1.05]),
+    dict(
+        type="GlobalRotScaleTrans",
+        rot_range=[-3.14159264, 3.14159264],
+        scale_ratio_range=[0.95, 1.05],
+    ),
     dict(type="PointShuffle"),
     dict(type="Pack3DDetInputs", keys=["points", "pts_semantic_mask"]),
 ]
@@ -48,9 +60,17 @@ model = dict(
     backbone=dict(
         in_channels=6,
         weight_norm=True,
+        sample_method="rand",
+        query_method="knn",
+        norm_cfg=dict(type="BN1d", momentum=0.02),
+        act_cfg=dict(type="LeakyReLU", negative_slope=0.1),
     ),  # [rgb, normalized_xyz]
     decode_head=dict(
-        num_classes=7, ignore_index=7, loss_decode=dict(class_weight=None)
+        num_classes=7,
+        ignore_index=7,
+        loss_decode=dict(class_weight=None),
+        norm_cfg=dict(type="BN1d", momentum=0.02),
+        act_cfg=dict(type="LeakyReLU", negative_slope=0.1),
     ),  # Titan doesn't use class_weight
     test_cfg=dict(
         num_points=num_points,
@@ -89,4 +109,4 @@ optim_wrapper = dict(
 )
 
 # PointNet2-MSG needs longer training time than PointNet2-SSG
-train_cfg = dict(by_epoch=True, max_epochs=100, val_interval=1)
+train_cfg = dict(by_epoch=True, max_epochs=100, val_interval=2)

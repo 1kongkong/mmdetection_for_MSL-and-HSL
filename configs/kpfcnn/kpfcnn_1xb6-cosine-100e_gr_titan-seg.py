@@ -64,10 +64,8 @@ model = dict(
     backbone=dict(
         in_channels=6,
         weight_norm=True,
-        voxel_size=[0.8, 1.6, 3.2, 6.4],
-        radius=[1.0, 2.0, 4.0, 8.0, 16.0],
-        sample_method="grid",
-        query_method="ball",
+        sample_method="grid+rand",
+        query_method="knn",
         norm_cfg=dict(type="BN1d", momentum=0.02),
         act_cfg=dict(type="LeakyReLU", negative_slope=0.1),
     ),  # [rgb, normalized_xyz]

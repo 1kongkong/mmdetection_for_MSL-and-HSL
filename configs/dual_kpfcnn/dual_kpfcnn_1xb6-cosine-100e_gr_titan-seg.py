@@ -1,6 +1,6 @@
 _base_ = [
     "../_base_/datasets/titan-seg.py",
-    "../_base_/models/kpfcnn.py",
+    "../_base_/models/dual_kpfcnn.py",
     "../_base_/schedules/seg-cosine-80e.py",
     "../_base_/default_runtime.py",
 ]
@@ -59,21 +59,21 @@ train_pipeline = [
     dict(type="PointShuffle"),
     dict(type="Pack3DDetInputs", keys=["points", "pts_semantic_mask"]),
 ]
+
 # model settings
 model = dict(
     backbone=dict(
         in_channels=6,
+        k_neighbor=25,
+        sample_method="grid+rand",
+        query_method="knn",
         weight_norm=True,
-        voxel_size=[0.8, 1.6, 3.2, 6.4],
-        radius=[1.0, 2.0, 4.0, 8.0, 16.0],
-        sample_method="grid",
-        query_method="ball",
         norm_cfg=dict(type="BN1d", momentum=0.02),
         act_cfg=dict(type="LeakyReLU", negative_slope=0.1),
     ),  # [rgb, normalized_xyz]
     decode_head=dict(
-        num_classes=7,
-        ignore_index=7,
+        num_classes=len(class_names),
+        ignore_index=len(class_names),
         loss_decode=dict(class_weight=None),
         stack=False,
         norm_cfg=dict(type="BN1d", momentum=0.02),
@@ -117,4 +117,11 @@ optim_wrapper = dict(
     clip_grad=None,
 )
 
+param_scheduler = [
+    dict(
+        type="CosineAnnealingLR", T_max=80, eta_min=1e-4, by_epoch=True, begin=0, end=80
+    )
+]
+
+# PointNet2-MSG needs longer training time than PointNet2-SSG
 train_cfg = dict(by_epoch=True, max_epochs=100, val_interval=2)

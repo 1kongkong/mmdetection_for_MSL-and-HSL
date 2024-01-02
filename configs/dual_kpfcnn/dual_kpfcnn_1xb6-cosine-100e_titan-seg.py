@@ -60,7 +60,8 @@ train_pipeline = [
 model = dict(
     backbone=dict(
         in_channels=6,
-        # sample_nums=(2000, 500, 250, 125),
+        sample_method="rand",
+        query_method="knn",
         weight_norm=True,
     ),  # [rgb, normalized_xyz]
     decode_head=dict(
@@ -71,6 +72,7 @@ model = dict(
     test_cfg=dict(
         num_points=num_points,
         block_size=block_size,
+        mode="slide",
         sample_rate=0.5,
         use_normalized_coord=True,
         batch_size=8,
