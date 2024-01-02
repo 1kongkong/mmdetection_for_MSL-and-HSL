@@ -110,13 +110,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--path", dest="path", type=str, help="the path of model workdir"
     )
+    parser.add_argument("--dataset", dest="dataset", type=str, help="dataset name")
     args = parser.parse_args()
 
     paths = glob.glob(args.path + "/*.ply")
-    for key in semseg_cmap_dict.keys():
-        if key in args.path:
-            semseg_cmap = semseg_cmap_dict[key]
-            break
+    if args.dataset.lower() == "titan":
+        semseg_cmap = semseg_cmap_dict["titan"]
+    elif args.dataset.lower() == "sensaturban":
+        semseg_cmap = semseg_cmap_dict["sensaturban"]
+    else:
+        raise NotImplementedError
     for path in paths:
         print(path)
         data = read_ply(path)
