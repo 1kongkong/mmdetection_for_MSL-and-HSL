@@ -8,7 +8,6 @@ model = dict(
         in_channels=6,  # [xyz, rgb], should be modified with dataset
         kernel_size=15,
         k_neighbor=20,
-        sample_nums=(2048, 512, 128, 64),
         kpconv_channels=(
             (16, 32, 32),
             (64, 64, 64),

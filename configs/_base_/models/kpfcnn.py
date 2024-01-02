@@ -5,12 +5,9 @@ model = dict(
     backbone=dict(
         type="KPFCNNBackbone",
         num_point=8192,
-        # num_point=4096,
         in_channels=6,  # [xyz, rgb], should be modified with dataset
         kernel_size=15,
         k_neighbor=20,
-        # sample_nums=(12500, 3125, 780, 195),
-        sample_nums=(2048, 512, 128, 64),
         kpconv_channels=(
             (32, 64, 64),
             (128, 128, 128),

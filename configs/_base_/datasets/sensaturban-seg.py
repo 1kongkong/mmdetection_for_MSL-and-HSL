@@ -32,25 +32,31 @@ all_paths = [
     "birmingham_block_11",
     "birmingham_block_12",
     "birmingham_block_13",
+    "birmingham_block_2",
     "birmingham_block_3",
     "birmingham_block_4",
     "birmingham_block_5",
     "birmingham_block_6",
     "birmingham_block_7",
+    "birmingham_block_8",
     "birmingham_block_9",
     "cambridge_block_10",
     "cambridge_block_12",
     "cambridge_block_13",
     "cambridge_block_14",
+    "cambridge_block_15",
+    "cambridge_block_16",
     "cambridge_block_17",
     "cambridge_block_18",
     "cambridge_block_19",
     "cambridge_block_2",
     "cambridge_block_20",
     "cambridge_block_21",
+    "cambridge_block_22",
     "cambridge_block_23",
     "cambridge_block_25",
     "cambridge_block_26",
+    "cambridge_block_27",
     "cambridge_block_28",
     "cambridge_block_3",
     "cambridge_block_32",
@@ -64,12 +70,22 @@ all_paths = [
 ]
 all_area = [path.split("/")[-1].split(".")[0] for path in all_paths]
 test_area = [
+    "birmingham_block_2",
+    "birmingham_block_8",
+    "cambridge_block_15",
+    "cambridge_block_16",
+    "cambridge_block_22",
+    "cambridge_block_27",
+]
+val_area = [
     "birmingham_block_1",
     "birmingham_block_5",
     "cambridge_block_10",
     "cambridge_block_7",
 ]
-train_area = [area for area in all_area if area not in test_area]
+train_area = [
+    area for area in all_area if (area not in test_area) and (area not in val_area)
+]
 
 train_pipeline = [
     dict(
