@@ -1348,6 +1348,9 @@ class IndoorPatchPointSample(BaseTransform):
             )
             if not cur_choice.any():  # no points in this patch
                 continue
+            
+            if self.sample_type == "VoxelSp" and np.sum(cur_choice) < 8192:
+                continue
 
             cur_coords = coords[cur_choice, :]
             cur_sem_mask = sem_mask[cur_choice]
