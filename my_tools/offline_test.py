@@ -51,10 +51,10 @@ def out_markdown_table(title, data, log_path):
 
 
 def test_ply(preds, labels, dataset, log_path):
-    if dataset == "titan":
+    if dataset.lower() == "titan":
         class_num = 7
         class_name = class_name_dict["titan"]
-    elif dataset == "sensaturban":
+    elif dataset.lower() == "sensaturban":
         class_num = 13
         class_name = class_name_dict["sensaturban"]
     else:
@@ -73,16 +73,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--path", dest="path", type=str, help="the path of model workdir"
     )
+    parser.add_argument("--dataset", dest="dataset", type=str, help="dataset name")
     args = parser.parse_args()
 
     log_path = os.path.join(args.path, "log.md")
     paths = glob.glob(os.path.join(args.path, "*.ply"))
-    if "titan" in args.path:
+    if args.dataset.lower() == "titan":
         label_root = "data/Titan/origin_data"
-        dataset = "titan"
-    elif "sensaturban" in args.path:
+    elif args.dataset.lower() == "sensaturban":
         label_root = "data/SensatUrban/test"
-        dataset = "sensaturban"
     else:
         raise NotImplementedError
     label = []
@@ -95,4 +94,4 @@ if __name__ == "__main__":
         pred.append(data["pred"].astype(np.int32))
     label = np.concatenate(label)
     pred = np.concatenate(pred)
-    test_ply(pred, label, dataset, log_path)
+    test_ply(pred, label, args.dataset, log_path)
