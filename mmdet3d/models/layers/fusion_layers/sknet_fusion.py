@@ -6,7 +6,9 @@ import numpy as np
 from mmcv.cnn import ConvModule
 from mmcv.cnn.bricks.activation import build_activation_layer
 from mmcv.cnn.bricks.norm import build_norm_layer
-from mmcv.ops.group_points import grouping_operation
+
+# from mmcv.ops.group_points import grouping_operation
+from my_tools.gather import gather
 
 
 class cross_att_fusion_block(nn.Module):
@@ -27,7 +29,8 @@ class cross_att_fusion_block(nn.Module):
         """
         dims = spa.shape[1]
         feature = torch.cat([spa, spe], dim=1)
-        neighbors_feats = grouping_operation(feature, neighbor_indices)
+        # neighbors_feats = grouping_operation(feature, neighbor_indices)
+        neighbors_feats = gather(feature, neighbor_indices, True)
         feature_q = feature.permute(0, 2, 1).contiguous()
         neighbors_feats = neighbors_feats.permute(0, 2, 3, 1).contiguous()  # B, N, K, C
         spa_feature = self.spa_MHA(feature_q[..., :dims], neighbors_feats[..., dims:])
@@ -59,7 +62,9 @@ class CrossAttention(nn.Module):
         K = self.W_K(feature_spe)
         V = self.W_V(feature_spe)
 
-        context, attn = ScaledDotProductAttention()(Q, K, V)  # context: [batch_size, n_heads, len_q, d_v]
+        context, attn = ScaledDotProductAttention()(
+            Q, K, V
+        )  # context: [batch_size, n_heads, len_q, d_v]
         # attn: [batch_size, n_heads, len_q, len_k]
         # context: [batch_size, num_points, n_heads, 1, d_v]
         # context = context.squeeze(-2).reshape(B, N, self.n_heads * self.d_k)
@@ -78,9 +83,13 @@ class ScaledDotProductAttention(nn.Module):
         V: [batch_size, num_points, k_neighbors, d_v]
         """
         # scores : [batch_size, num_points, len_k, k_neighbors, k_neighbors]
-        scores = torch.matmul(Q.unsqueeze(2), K.transpose(-1, -2)) / np.sqrt(Q.shape[-1])
+        scores = torch.matmul(Q.unsqueeze(2), K.transpose(-1, -2)) / np.sqrt(
+            Q.shape[-1]
+        )
         attn = nn.Softmax(dim=-1)(scores)
-        context = torch.matmul(attn, V).squeeze(2)  # [batch_size, num_points, n_heads, 1, d_v]
+        context = torch.matmul(attn, V).squeeze(
+            2
+        )  # [batch_size, num_points, n_heads, 1, d_v]
         return context, attn
 
 
@@ -113,7 +122,7 @@ class cross_att_fusion_block_2(nn.Module):
 
 
 class PointTransformerLayer(nn.Module):
-    def __init__(self, in_planes, share_planes=8):
+    def __init__(self, in_planes, share_planes=16):
         super().__init__()
         out_planes = in_planes
         self.mid_planes = mid_planes = out_planes // 1
@@ -123,7 +132,10 @@ class PointTransformerLayer(nn.Module):
         self.linear_k = nn.Conv1d(in_planes, mid_planes, 1)
         self.linear_v = nn.Conv1d(in_planes, out_planes, 1)
         self.linear_p = nn.Sequential(
-            nn.Conv2d(3, 3, 1), nn.BatchNorm2d(3), nn.ReLU(inplace=True), nn.Conv2d(3, out_planes, 1)
+            nn.Conv2d(3, 3, 1),
+            nn.BatchNorm2d(3),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(3, out_planes, 1),
         )
         self.linear_w = nn.Sequential(
             nn.BatchNorm2d(mid_planes),
@@ -143,9 +155,14 @@ class PointTransformerLayer(nn.Module):
         neighbor_indices: [B,N,k]
         """
         x_q, x_k, x_v = self.linear_q(q), self.linear_k(k), self.linear_v(q)  # B,C,N
-        p_r = grouping_operation(coord.permute(0, 2, 1).contiguous(), neighbor_indices)  # B,3,N,K
-        x_k = grouping_operation(x_k, neighbor_indices)  # B,C,N,K
-        x_v = grouping_operation(x_v, neighbor_indices)  # B,C,N,K
+        # p_r = grouping_operation(coord.permute(0, 2, 1).contiguous(), neighbor_indices)  # B,3,N,K
+        # x_k = grouping_operation(x_k, neighbor_indices)  # B,C,N,K
+        # x_v = grouping_operation(x_v, neighbor_indices)  # B,C,N,K
+        p_r = gather(
+            coord.permute(0, 2, 1).contiguous(), neighbor_indices, True
+        )  # B,3,N,K
+        x_k = gather(x_k, neighbor_indices, True)  # B,C,N,K
+        x_v = gather(x_v, neighbor_indices, True)  # B,C,N,K
 
         p_r = self.linear_p(p_r)  # B,C,N,K
 
@@ -159,7 +176,11 @@ class PointTransformerLayer(nn.Module):
         x_v = x_v.permute(0, 2, 3, 1)
         p_r = p_r.permute(0, 2, 3, 1)
         s = self.share_planes
-        x = ((x_v + p_r).view(b, n, nsample, s, c // s) * w.unsqueeze(3)).sum(2).view(b, n, c)
+        x = (
+            ((x_v + p_r).view(b, n, nsample, s, c // s) * w.unsqueeze(3))
+            .sum(2)
+            .view(b, n, c)
+        )
         return x.permute(0, 2, 1).contiguous()
 
 

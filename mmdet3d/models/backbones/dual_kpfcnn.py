@@ -6,14 +6,15 @@ from torch import nn as nn
 import copy
 
 from mmdet3d.registry import MODELS
-from mmcv.ops.knn import knn
-from mmcv.ops.ball_query import ball_query
 
-# from mmcv.ops.ball_query import ball_query
 from mmdet3d.utils import ConfigType
 from ..layers.kpconv_modules.kpconv import KPConvBlock, KPResNetBlock
 from mmdet3d.models.backbones.kpfcnn import KPFCNNBackbone
-from mmdet3d.models.layers.fusion_layers import fusion_block, cross_att_fusion_block, cross_att_fusion_block_2
+from mmdet3d.models.layers.fusion_layers import (
+    fusion_block,
+    cross_att_fusion_block,
+    cross_att_fusion_block_2,
+)
 
 
 @MODELS.register_module()
@@ -24,8 +25,9 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
         in_channels: int,
         kernel_size: int,
         k_neighbor: int,
-        sample_nums: List[int],
         kpconv_channels: List[List[int]],
+        sample_method: str = "rand",  # {'rand','grid','grid+rand'}
+        query_method: str = "knn",  # {'knn','ball'}
         voxel_size: List[float] = None,
         radius: List[float] = None,
         weight_norm: bool = False,
@@ -37,8 +39,9 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
             in_channels=in_channels // 2,
             kernel_size=kernel_size,
             k_neighbor=k_neighbor,
-            sample_nums=sample_nums,
             kpconv_channels=kpconv_channels,
+            sample_method=sample_method,
+            query_method=query_method,
             voxel_size=voxel_size,
             radius=radius,
             weight_norm=weight_norm,
@@ -77,7 +80,9 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
                             radius[i - 1] if radius else radius,
                             k_neighbor,
                             weight_norm,
-                            strided=True if j == len(self.channel_list[i]) - 1 else False,
+                            strided=True
+                            if j == len(self.channel_list[i]) - 1
+                            else False,
                             norm_cfg=norm_cfg,
                             act_cfg=act_cfg,
                         )
@@ -95,26 +100,17 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
                 - point
         """
         ## process patch
-        isvoxel = False
-        if isinstance(inputs, list):  # 如果inputs是list说明未进行拼接，是不等长的patch
-            length = [x.shape[0] for x in inputs]
-            inputs = torch.cat(inputs).unsqueeze(0)
-            isvoxel = True
+        if "grid" in self.sample_method:
+            self.patch_len = [x.shape[0] for x in inputs]
+            inputs = torch.cat(inputs).unsqueeze(0)  # 1,N,C
 
         points, features = self._split_point_feats(inputs)
 
         # down sample and query (rand or voxel / knn or ball)
-        if isvoxel:
-            points = points.squeeze(0)
-            points_downsample, length_downsample = self._voxel_sample_batch(points, length)
-            idx_self, idx_downsample = self._ball_query(points_downsample, length_downsample, self.radius)
-            points_downsample = [x.unsqueeze(0) for x in points_downsample]
-            idx_self = [x.unsqueeze(0) for x in idx_self]
-            idx_downsample = [x.unsqueeze(0) for x in idx_downsample]
-        else:
-            points_downsample = self._random_sample(points)  # [0,1,2,3,4]
-            idx_self, idx_downsample = self._knn_query(points_downsample)  # [0,1,2,3,4],[0,1,2,3]
-            length_downsample = [None for _ in range(len(self.kpconv_channels))]
+        points_downsample, length_downsample = self.sample(points)
+        # print(length_downsample)
+
+        idx_self, idx_downsample = self.query(points_downsample, length_downsample)
 
         layer_num = 0
         feature_spa = features[:, 3:, :]
@@ -123,47 +119,48 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
         for i in range(len(self.kpconv_channels)):
             for j in range(len(self.kpconv_channels[i])):
                 if (
-                    j != len(self.kpconv_channels[i]) - 1 or i == len(self.kpconv_channels) - 1
+                    j != len(self.kpconv_channels[i]) - 1
+                    or i == len(self.kpconv_channels) - 1
                 ):  # 最后一层不进行下采样，其它层的最后一次卷积进行下采样
                     _, feature_spa, _ = self.kpconvs_0[layer_num](
                         points_downsample[i],
                         feature_spa,
                         points_downsample[i],
                         idx_self[i],
-                        length_downsample[i],
-                        length_downsample[i],
                     )
                     _, feature_spe, _ = self.kpconvs_1[layer_num](
                         points_downsample[i],
                         feature_spe,
                         points_downsample[i],
                         idx_self[i],
-                        length_downsample[i],
-                        length_downsample[i],
                     )
                 else:
                     # feature_set.append(self.fusions[i](feature_spa, feature_spe, idx_self[i]))
                     feature_set.append(
-                        self.fusions[i](points_downsample[i], feature_spa, feature_spe, idx_self[i])
+                        self.fusions[i](
+                            points_downsample[i], feature_spa, feature_spe, idx_self[i]
+                        )
                     )
                     _, feature_spa, _ = self.kpconvs_0[layer_num](
                         points_downsample[i],
                         feature_spa,
                         points_downsample[i + 1],
                         idx_downsample[i],
-                        length_downsample[i],
-                        length_downsample[i + 1],
                     )
                     _, feature_spe, _ = self.kpconvs_1[layer_num](
                         points_downsample[i],
                         feature_spe,
                         points_downsample[i + 1],
                         idx_downsample[i],
-                        length_downsample[i],
-                        length_downsample[i + 1],
                     )
                 layer_num += 1
         # feature_set.append(self.fusions[-1](feature_spa, feature_spe, idx_self[-1]))
-        feature_set.append(self.fusions[-1](points_downsample[-1], feature_spa, feature_spe, idx_self[-1]))
-        out = dict(points=points_downsample, features=feature_set, length=length_downsample)
+        feature_set.append(
+            self.fusions[-1](
+                points_downsample[-1], feature_spa, feature_spe, idx_self[-1]
+            )
+        )
+        out = dict(
+            points=points_downsample, features=feature_set, length=length_downsample
+        )
         return out

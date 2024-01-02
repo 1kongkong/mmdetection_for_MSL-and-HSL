@@ -9,8 +9,11 @@ from torch import Tensor
 from torch import nn as nn
 
 from mmdet3d.utils import ConfigType, OptMultiConfig
-from mmcv.ops.knn import knn
+
+# from mmcv.ops.knn import knn
 from mmcv.ops.group_points import grouping_operation
+from my_tools.knn import knn
+from my_tools.gather import gather
 
 
 class KPConvFPModule(BaseModule):
@@ -68,15 +71,16 @@ class KPConvFPModule(BaseModule):
 
     def _batch_knn_query(self, target_points, source_points, target_len, source_len):
         """ """
-        idx = torch.zeros((1, target_points.shape[1], 1), dtype=torch.int32, device=target_points.device)
-        target_len_pre_sum = self._len2pre_sum(target_len)
-        source_len_pre_sum = self._len2pre_sum(source_len)
-        for i in range(len(target_len_pre_sum) - 1):
-            t_start, t_end = target_len_pre_sum[i], target_len_pre_sum[i + 1]
-            s_start, s_end = source_len_pre_sum[i], source_len_pre_sum[i + 1]
-            idx[:, t_start:t_end, :] = self._knn_query(
-                target_points[:, t_start:t_end, :], source_points[:, s_start:s_end, :]
-            )
+        idx = knn(1, target_points, source_points, target_len, source_len)
+        # idx = torch.zeros((1, target_points.shape[1], 1), dtype=torch.int32, device=target_points.device)
+        # target_len_pre_sum = self._len2pre_sum(target_len)
+        # source_len_pre_sum = self._len2pre_sum(source_len)
+        # for i in range(len(target_len_pre_sum) - 1):
+        #     t_start, t_end = target_len_pre_sum[i], target_len_pre_sum[i + 1]
+        #     s_start, s_end = source_len_pre_sum[i], source_len_pre_sum[i + 1]
+        #     idx[:, t_start:t_end, :] = self._knn_query(
+        #         target_points[:, t_start:t_end, :], source_points[:, s_start:s_end, :]
+        #     )
         return idx
 
     def forward(
@@ -103,15 +107,17 @@ class KPConvFPModule(BaseModule):
         Return:
             Tensor: (B, M, N) M = mlp[-1], Tensor of the target features.
         """
-        if target_len is None and source_len is None:
-            idx = self._knn_query(target, source)
-            upsample_feats = grouping_operation(source_feats, idx)
-        else:
-            idx = self._batch_knn_query(target, source, target_len, source_len)
-            upsample_feats = grouping_operation(
-                source_feats.squeeze(0).permute(1, 0), idx.squeeze(0), source_len, target_len
-            )
-            upsample_feats = upsample_feats.permute(1, 0, 2).unsqueeze(0)
+        idx = self._batch_knn_query(source, target, source_len, target_len)
+        upsample_feats = gather(source_feats, idx, True)
+        # if target_len is None and source_len is None:
+        #     idx = self._batch_knn_query(target, source)
+        #     upsample_feats = grouping_operation(source_feats, idx)
+        # else:
+        #     idx = self._batch_knn_query(target, source, target_len, source_len)
+        #     upsample_feats = grouping_operation(
+        #         source_feats.squeeze(0).permute(1, 0), idx.squeeze(0), source_len, target_len
+        #     )
+        #     upsample_feats = upsample_feats.permute(1, 0, 2).unsqueeze(0)
         upsample_feats = upsample_feats.squeeze(-1)
         upsample_feats = torch.cat([upsample_feats, target_feats], dim=1)
 

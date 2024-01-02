@@ -6,13 +6,12 @@ import numpy as np
 from typing import List, Tuple, Dict, Optional
 from torch import Tensor
 
-from mmcv.ops.group_points import grouping_operation
+# from mmcv.ops.group_points import grouping_operation
 from .kernel_points import load_kernels
 from mmcv.cnn import ConvModule
 from mmcv.cnn.bricks.activation import build_activation_layer
-
-# from mmcv.cnn.bricks.conv import build_conv_layer
 from mmcv.cnn.bricks.norm import build_norm_layer
+from my_tools.gather import gather
 
 
 class KPConv(nn.Module):
@@ -62,7 +61,9 @@ class KPConv(nn.Module):
         self.eps = eps
 
         # Initialize weights
-        self.weights = nn.Parameter(torch.zeros(self.kernel_size, input_dim, output_dim))
+        self.weights = nn.Parameter(
+            torch.zeros(self.kernel_size, input_dim, output_dim)
+        )
         if self.has_bias:
             self.bias = nn.Parameter(torch.zeros(self.output_dim))
 
@@ -88,12 +89,14 @@ class KPConv(nn.Module):
                 self.radius, self.kernel_size, dimension=self.dimension, fixed="center"
             )
         else:
-            kernel_points = load_kernels(1, self.kernel_size, dimension=self.dimension, fixed="center")
+            kernel_points = load_kernels(
+                1, self.kernel_size, dimension=self.dimension, fixed="center"
+            )
         # if kernel_points is None:
         return torch.from_numpy(kernel_points).float()
 
     def forward(
-        self, points_xyz, features, center_xyz, neighbor_indices, feature_len, idx_len
+        self, points_xyz, features, center_xyz, neighbor_indices
     ) -> Tuple[Tensor]:
         """
         input:
@@ -108,18 +111,19 @@ class KPConv(nn.Module):
         # Get neighbor points
         # input: (B, C, N) , (B, M, K)
         # return: (B, C, M, K)
-        points_xyz_trans = points_xyz.transpose(1, 2).contiguous()
-        points = torch.cat([points_xyz_trans, features], dim=1)
+        features_trans = features.transpose(1, 2).contiguous()
+        points = torch.cat([points_xyz, features_trans], dim=-1)
+        shadow_point = torch.zeros_like(points[:, :1, :])
+        shadow_point[:, :, :3] -= 1e3
+        points = torch.cat([points, shadow_point], dim=1)
+        neighbors = gather(points, neighbor_indices)  # B 3+N M
 
-        if feature_len is None and idx_len is None:
-            neighbors = grouping_operation(points, neighbor_indices)
-        else:
-            points = points.squeeze(0).permute(1, 0)
-            neighbor_indices = neighbor_indices.squeeze(0)
-            neighbors = grouping_operation(points, neighbor_indices, feature_len, idx_len)
-            neighbors = neighbors.permute(1, 0, 2).unsqueeze(0)
-        neighbors_xyz = neighbors[:, :3, ...].permute(0, 2, 3, 1).contiguous()  # B, M, K, 3
-        neighbors_feats = neighbors[:, 3:, ...].permute(0, 2, 3, 1).contiguous()  # B, M, K, C
+        neighbors_xyz = (
+            neighbors[:, :3, ...].permute(0, 2, 3, 1).contiguous()
+        )  # B, M, K, 3
+        neighbors_feats = (
+            neighbors[:, 3:, ...].permute(0, 2, 3, 1).contiguous()
+        )  # B, M, K, C
 
         neighbors_xyz = neighbors_xyz - center_xyz.unsqueeze(2)
         dist = torch.sqrt(torch.sum(neighbors_xyz**2, dim=3))
@@ -128,33 +132,35 @@ class KPConv(nn.Module):
         m_dist = torch.max(dist, dim=2, keepdim=True)[0]  # B N 1
         kernel_points = self.kernel_points  # k 3
         if not self.radius:
-            kernel_points = (
-                kernel_points[None, None, :, :] * m_dist[:, :, :, None]  # 1 1 k 3 * B N 1 1 -> B N k 3
-            )
-            differences = neighbors_xyz.unsqueeze(3) - kernel_points.unsqueeze(2)  # B,N,K,k,3
+            # 1 1 k 3 * B N 1 1 -> B N k 3
+            kernel_points = kernel_points[None, None, :, :] * m_dist[:, :, :, None]
+            # B,N,K,k,3
+            differences = neighbors_xyz.unsqueeze(3) - kernel_points.unsqueeze(2)
         else:
             differences = neighbors_xyz.unsqueeze(3) - kernel_points  # B,N,K,k,3
 
-        # Get the square distances [n_points, n_neighbors, n_kernel_points]
+        # Get the square distances [batchsize, n_points, n_neighbors, n_kernel_points]
         sq_distances = torch.sum(differences**2, dim=4)  # B,N,K,k
 
-        # Get Kernel point influences [n_points, n_kernel_points, n_neighbors]
+        # Get Kernel point influences [batchsize, n_points, n_kernel_points, n_neighbors]
         # Influence decrease linearly with the distance, and get to zero when d = sigma.
         if not self.radius:
             neighbor_weights = torch.clamp(
-                1 - torch.sqrt(sq_distances) / (m_dist.unsqueeze(-1) / 2.5 + 1e-6), min=0.0
+                1 - torch.sqrt(sq_distances) / (m_dist.unsqueeze(-1) / 2.1 + 1e-6),
+                min=0.0,
             )
         else:
-            neighbor_weights = torch.clamp(1 - torch.sqrt(sq_distances) / (self.radius / 2.5 + 1e-6), min=0.0)
+            neighbor_weights = torch.clamp(
+                1 - torch.sqrt(sq_distances) / (self.radius / 2.1 + 1e-6), min=0.0
+            )
 
         # weight normalization
-        
-        neighbor_weights = neighbor_weights / (
-            torch.sum(neighbor_weights, dim=-2, keepdim=True) + 1e-6
-        )  # B,N,K,k
         if self.weight_norm:
+            neighbor_weights = neighbor_weights / (
+                torch.sum(neighbor_weights, dim=-2, keepdim=True) + 1e-6
+            )  # B,N,K,k
             mask_ = torch.sum(neighbor_weights, dim=2)  # B,N,k
-            mask = torch.sum(torch.gt(mask_, 0.0), dim=-1, keepdim=False)  # B,N
+            mask = torch.sum(torch.gt(mask_, 1e-3), dim=-1, keepdim=False)  # B,N
 
         neighbor_weights = torch.transpose(neighbor_weights, 2, 3)  # B,N,k,K
 
@@ -173,12 +179,12 @@ class KPConv(nn.Module):
         # normalization term.
         if self.weight_norm:
             output_feats = output_feats / mask.unsqueeze(-1)
-            return output_feats.permute(0, 2, 1).contiguous()  # B,out_dim,N
+            # return output_feats.permute(0, 2, 1).contiguous()  # B,out_dim,N
 
-        neighbor_feats_sum = torch.sum(neighbors_feats, dim=-1)  # B,N,K
-        neighbor_num = torch.sum(torch.gt(neighbor_feats_sum, 0.0), dim=-1)  # B N
-        neighbor_num = torch.max(neighbor_num, torch.ones_like(neighbor_num))
-        output_feats = output_feats / neighbor_num.unsqueeze(-1)  # B N 1
+        # neighbor_feats_sum = torch.sum(neighbors_feats, dim=-1)  # B,N,K
+        # neighbor_num = torch.sum(torch.gt(neighbor_feats_sum, 0.0), dim=-1)  # B N
+        # neighbor_num = torch.max(neighbor_num, torch.ones_like(neighbor_num))
+        # output_feats = output_feats / neighbor_num.unsqueeze(-1)  # B N 1
 
         return output_feats.permute(0, 2, 1).contiguous()  # B,out_dim,N
 
@@ -218,13 +224,19 @@ class KPConvBlock(nn.Module):
         self.radius = radius
 
         self.KPConv = KPConv(
-            kernel_size, input_dim, output_dim, radius, neighbor_num, weight_norm, bias=False
+            kernel_size,
+            input_dim,
+            output_dim,
+            radius,
+            neighbor_num,
+            weight_norm,
+            bias=False,
         )
         self.norm_name, self.norm_layer = build_norm_layer(norm_cfg, output_dim)
         self.leaky_relu = build_activation_layer(act_cfg)
 
-    def forward(self, points_xyz, features, center_xyz, neighbor_indices, feature_len=None, idx_len=None):
-        x = self.KPConv(points_xyz, features, center_xyz, neighbor_indices, feature_len, idx_len)
+    def forward(self, points_xyz, features, center_xyz, neighbor_indices):
+        x = self.KPConv(points_xyz, features, center_xyz, neighbor_indices)
         x = self.norm_layer(x)
         x = self.leaky_relu(x)
 
@@ -279,7 +291,13 @@ class KPResNetBlock(nn.Module):
             self.unary1 = nn.Identity()
 
         self.KPConv = KPConv(
-            kernel_size, hidden_dim, hidden_dim, radius, neighbor_num, weight_norm, bias=False
+            kernel_size,
+            hidden_dim,
+            hidden_dim,
+            radius,
+            neighbor_num,
+            weight_norm,
+            bias=False,
         )
         self.norm_name, self.norm_layer = build_norm_layer(norm_cfg, hidden_dim)
 
@@ -310,28 +328,28 @@ class KPResNetBlock(nn.Module):
 
         self.leaky_relu = build_activation_layer(act_cfg)
 
-    def _maxpool(self, features, neighbor_indices, feature_len, idx_len):
-        # Get neighbor points
-        # input: (B, C, N) , (B, M, K)
-        # return: (B, C, M, K)
-        if feature_len is None and idx_len is None:
-            neighbor_features = grouping_operation(features, neighbor_indices)
-        else:
-            features = features.squeeze(0).permute(1, 0)
-            neighbor_indices = neighbor_indices.squeeze(0)
-            neighbor_features = grouping_operation(features, neighbor_indices, feature_len, idx_len)
-            neighbor_features = neighbor_features.permute(1, 0, 2).unsqueeze(0)
+    def _maxpool(self, features, neighbor_indices):
+        features = torch.cat(
+            [features, torch.zeros_like(features[:, :, :1]) - 1e4], dim=2
+        )
+        neighbor_features = gather(features, neighbor_indices, True)
         return neighbor_features.max(dim=-1)[0]
 
-    def forward(self, points_xyz, features, center_xyz, neighbor_indices, feature_len=None, idx_len=None):
+    def forward(
+        self,
+        points_xyz,
+        features,
+        center_xyz,
+        neighbor_indices,
+    ):
         x = self.unary1(features)
-        x = self.KPConv(points_xyz, x, center_xyz, neighbor_indices, feature_len, idx_len)
+        x = self.KPConv(points_xyz, x, center_xyz, neighbor_indices)
         x = self.norm_layer(x)
         x = self.leaky_relu(x)
         x = self.unary2(x)
 
         if self.strided:
-            shortcut = self._maxpool(features, neighbor_indices, feature_len, idx_len)
+            shortcut = self._maxpool(features, neighbor_indices)
         else:
             shortcut = features
         shortcut = self.unary_shortcut(shortcut)

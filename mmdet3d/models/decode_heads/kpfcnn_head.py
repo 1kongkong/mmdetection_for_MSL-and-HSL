@@ -36,8 +36,6 @@ class KPFCNNHead(Base3DDecodeHead):
             (384, 128, 128),
             (192, 128, 128),
         ),
-        fp_norm_cfg: ConfigType = dict(type="BN1d"),
-        fp_act_cfg: ConfigType = dict(type="LeakyReLU", negative_slope=0.1),
         stack: bool = True,
         **kwargs
     ) -> None:
@@ -48,7 +46,11 @@ class KPFCNNHead(Base3DDecodeHead):
         self.stack = stack
         for cur_fp_mlps in fp_channels:
             self.FP_modules.append(
-                KPConvFPModule(mlp_channels=cur_fp_mlps, norm_cfg=fp_norm_cfg, act_cfg=fp_act_cfg)
+                KPConvFPModule(
+                    mlp_channels=cur_fp_mlps,
+                    norm_cfg=self.norm_cfg,
+                    act_cfg=self.act_cfg,
+                )
             )
 
         # https://github.com/charlesq34/pointnet2/blob/master/models/pointnet2_sem_seg.py#L40
@@ -76,7 +78,10 @@ class KPFCNNHead(Base3DDecodeHead):
         return xyz, features
 
     def _stack_batch_gt(self, batch_data_samples: SampleList) -> Tensor:
-        gt_semantic_segs = [data_sample.gt_pts_seg.pts_semantic_mask for data_sample in batch_data_samples]
+        gt_semantic_segs = [
+            data_sample.gt_pts_seg.pts_semantic_mask
+            for data_sample in batch_data_samples
+        ]
         if self.stack:
             gt = torch.stack(gt_semantic_segs, dim=0)
         else:
