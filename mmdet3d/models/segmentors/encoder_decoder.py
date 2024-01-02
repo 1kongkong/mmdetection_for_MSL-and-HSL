@@ -106,6 +106,10 @@ class EncoderDecoder3D(Base3DSegmentor):
         assert (
             self.with_decode_head
         ), "3D EncoderDecoder Segmentor should have a decode_head"
+        # print(self)
+        # import pdb
+
+        # pdb.set_trace()
 
     def _init_decode_head(self, decode_head: ConfigType) -> None:
         """Initialize ``decode_head``."""
@@ -518,6 +522,102 @@ class EncoderDecoder3D(Base3DSegmentor):
 
         return choices
 
+    def _sliding_whole_patch_generation(
+        self,
+        points: Tensor,
+        block_size: float,
+        sample_rate: float = 0.5,
+        use_normalized_coord: bool = False,
+        eps: float = 1e-3,
+    ) -> Tuple[Tensor, Tensor]:
+        """Sampling points in a sliding window fashion.
+
+        Each patch contains all point clouds within the sliding window.
+
+        Args:
+            points (Tensor): Input points of shape [N, 3+C].
+            block_size (float): Size of a patch to sample.
+            sample_rate (float): Stride used in sliding patch. Defaults to 0.5.
+            use_normalized_coord (bool): Whether to use normalized xyz as
+                additional features. Defaults to False.
+            eps (float): A value added to patch boundary to guarantee points
+                coverage. Defaults to 1e-3.
+
+        Returns:
+            Tuple[Tensor, Tensor]:
+
+            - patch_points (Tensor): Points of different patches of shape
+              [K, N, 3+C].
+            - patch_idxs (Tensor): Index of each point in `patch_points` of
+              shape [K, N].
+        """
+        device = points.device
+        # we assume the first three dims are points' 3D coordinates
+        # and the rest dims are their per-point features
+        coords = points[:, :3]
+        feats = points[:, 3:]
+
+        coord_max = coords.max(0)[0]
+        coord_min = coords.min(0)[0]
+        stride = block_size * sample_rate
+        num_grid_x = int(
+            torch.ceil((coord_max[0] - coord_min[0] - block_size) / stride).item() + 1
+        )
+        num_grid_y = int(
+            torch.ceil((coord_max[1] - coord_min[1] - block_size) / stride).item() + 1
+        )
+
+        patch_points, patch_idxs = [], []
+        temp_idxs = []
+        for idx_y in range(num_grid_y):
+            s_y = coord_min[1] + idx_y * stride  # start
+            e_y = torch.min(s_y + block_size, coord_max[1])  # end
+            s_y = e_y - block_size
+            for idx_x in range(num_grid_x):
+                s_x = coord_min[0] + idx_x * stride
+                e_x = torch.min(s_x + block_size, coord_max[0])
+                s_x = e_x - block_size
+
+                # extract points within this patch
+                cur_min = torch.tensor([s_x, s_y, coord_min[2]]).to(device)
+                cur_max = torch.tensor([e_x, e_y, coord_max[2]]).to(device)
+                cur_choice = (
+                    (coords >= cur_min - eps) & (coords <= cur_max + eps)
+                ).all(
+                    dim=1
+                )  # patch中所有的idx
+
+                if not cur_choice.any():  # no points in this patch
+                    continue
+
+                # sample points in this patch to multiple batches
+                cur_center = cur_min + block_size / 2.0
+                point_idxs = torch.nonzero(cur_choice, as_tuple=True)[0]  # 获得非0元素
+
+                while point_idxs.shape[0] < 8192:
+                    cur_min -= 10
+                    cur_max += 10
+                    cur_choice = (
+                        (coords >= cur_min - eps) & (coords <= cur_max + eps)
+                    ).all(dim=1)
+                    point_idxs = torch.nonzero(cur_choice, as_tuple=True)[0]
+
+                choices = point_idxs[torch.randperm(point_idxs.shape[0])]
+
+                # construct model input
+                point_batches = self._input_generation(
+                    coords[choices],
+                    cur_center,
+                    coord_max,
+                    feats[choices],
+                    use_normalized_coord=use_normalized_coord,
+                )
+
+                patch_points.append(point_batches)
+                patch_idxs.append(choices)
+
+        return patch_points, patch_idxs
+
     def gridsample_slide_inference(self, point: Tensor, input_meta: dict) -> Tensor:
         """Inference by gridsample and sliding-window with overlap.
         Args:
@@ -542,27 +642,20 @@ class EncoderDecoder3D(Base3DSegmentor):
         _, idx = tree.query(point[:, :3].cpu().numpy(), k=3, workers=4)
         idx = torch.tensor(idx, device=point_sub.device, dtype=torch.long)
 
-        num_points = self.test_cfg.num_points
         block_size = self.test_cfg.block_size
         sample_rate = self.test_cfg.sample_rate
         use_normalized_coord = self.test_cfg.use_normalized_coord
-        batch_size = self.test_cfg.batch_size * num_points
+        batch_size = self.test_cfg.batch_size
 
         # patch_points is of shape [K*N, 3+C], patch_idxs is of shape [K*N]
-        patch_points, patch_idxs = self._sliding_patch_generation(
-            point_sub, num_points, block_size, sample_rate, use_normalized_coord
+        patch_points, patch_idxs = self._sliding_whole_patch_generation(
+            point_sub, block_size, sample_rate, use_normalized_coord
         )
-        feats_dim = patch_points.shape[1]
+
         seg_logits = []  # save patch predictions
 
-        for batch_idx in range(0, patch_points.shape[0], batch_size):
+        for batch_idx in range(0, len(patch_points), batch_size):
             batch_points = patch_points[batch_idx : batch_idx + batch_size]
-            batch_points = batch_points.view(-1, num_points, feats_dim)
-            # batch_seg_logit is of shape [B, num_classes, N]
-            if not self.train_cfg.get("stack", True):
-                batch_points = [
-                    batch_points[i, ...] for i in range(batch_points.shape[0])
-                ]
             batch_seg_logit = self.encode_decode(
                 batch_points, [input_meta] * batch_size
             )
@@ -571,6 +664,7 @@ class EncoderDecoder3D(Base3DSegmentor):
 
         # aggregate per-point logits by indexing sum and dividing count
         seg_logits = torch.cat(seg_logits, dim=0)  # [K*N, num_classes]
+        patch_idxs = torch.cat(patch_idxs)
         expand_patch_idxs = patch_idxs.unsqueeze(1).repeat(1, self.num_classes)
         preds_sub = point_sub.new_zeros(
             (point_sub.shape[0], self.num_classes)
