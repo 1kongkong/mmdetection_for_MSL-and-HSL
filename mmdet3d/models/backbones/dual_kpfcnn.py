@@ -10,11 +10,12 @@ from mmdet3d.registry import MODELS
 from mmdet3d.utils import ConfigType
 from ..layers.kpconv_modules.kpconv import KPConvBlock, KPResNetBlock
 from mmdet3d.models.backbones.kpfcnn import KPFCNNBackbone
-from mmdet3d.models.layers.fusion_layers import (
-    fusion_block,
-    cross_att_fusion_block,
-    cross_att_fusion_block_2,
-)
+
+# from mmdet3d.models.layers.fusion_layers import (
+#     fusion_block,
+#     cross_att_fusion_block,
+#     cross_att_fusion_block_2,
+# )
 
 
 @MODELS.register_module()
@@ -56,7 +57,7 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
         for i in range(1, len(self.channel_list)):
             # self.fusions.append(fusion_block(self.channel_list[i][-1], norm_cfg=norm_cfg, act_cfg=act_cfg))
             # self.fusions.append(cross_att_fusion_block(self.channel_list[i][-1]))
-            self.fusions.append(cross_att_fusion_block_2(self.channel_list[i][-1]))
+            # self.fusions.append(cross_att_fusion_block_2(self.channel_list[i][-1]))
             for j in range(len(self.channel_list[i])):
                 if j == 0:
                     self.kpconvs_1.append(
@@ -115,7 +116,8 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
         layer_num = 0
         feature_spa = features[:, 3:, :]
         feature_spe = features[:, :3, :]
-        feature_set = []
+        feature_spa_set = []
+        feature_spe_set = []
         for i in range(len(self.kpconv_channels)):
             for j in range(len(self.kpconv_channels[i])):
                 if (
@@ -135,12 +137,14 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
                         idx_self[i],
                     )
                 else:
+                    feature_spa_set.append(feature_spa)
+                    feature_spe_set.append(feature_spe)
                     # feature_set.append(self.fusions[i](feature_spa, feature_spe, idx_self[i]))
-                    feature_set.append(
-                        self.fusions[i](
-                            points_downsample[i], feature_spa, feature_spe, idx_self[i]
-                        )
-                    )
+                    # feature_set.append(
+                    #     self.fusions[i](
+                    #         points_downsample[i], feature_spa, feature_spe, idx_self[i]
+                    #     )
+                    # )
                     _, feature_spa, _ = self.kpconvs_0[layer_num](
                         points_downsample[i],
                         feature_spa,
@@ -154,13 +158,19 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
                         idx_downsample[i],
                     )
                 layer_num += 1
+        feature_spa_set.append(feature_spa)
+        feature_spe_set.append(feature_spe)
         # feature_set.append(self.fusions[-1](feature_spa, feature_spe, idx_self[-1]))
-        feature_set.append(
-            self.fusions[-1](
-                points_downsample[-1], feature_spa, feature_spe, idx_self[-1]
-            )
-        )
+        # feature_set.append(
+        #     self.fusions[-1](
+        #         points_downsample[-1], feature_spa, feature_spe, idx_self[-1]
+        #     )
+        # )
         out = dict(
-            points=points_downsample, features=feature_set, length=length_downsample
+            points=points_downsample,
+            spa_feature=feature_spa_set,
+            spe_feature=feature_spe_set,
+            length=length_downsample,
+            self_index=idx_self,
         )
         return out

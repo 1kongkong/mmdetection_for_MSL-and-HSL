@@ -6,8 +6,10 @@ from .imvoxel_neck import IndoorImVoxelNeck, OutdoorImVoxelNeck
 from .pointnet2_fp_neck import PointNetFPNeck
 from .second_fpn import SECONDFPN
 from .kpfcnn_neck import KPFCNNNeck
+from .fusion_neck import VectorCrossAttentionNeck,CrossAttentionNeck,SKNetNeck
 
 __all__ = [
     'FPN', 'SECONDFPN', 'OutdoorImVoxelNeck', 'PointNetFPNeck', 'DLANeck',
-    'IndoorImVoxelNeck', 'KPFCNNNeck'
+    'IndoorImVoxelNeck', 'KPFCNNNeck', 'VectorCrossAttentionNeck', 'CrossAttentionNeck',
+    'SKNetNeck'
 ]
