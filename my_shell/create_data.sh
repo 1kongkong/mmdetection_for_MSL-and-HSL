@@ -24,12 +24,23 @@ cd $workdir
 #         --out-dir $out_dir \
 #         --extra-tag $extra_tag
 
-dataset_name=SensatUrban
-root_path=/home/bisifu/code/mmdetection3d/data/SensatUrban
-out_dir=/home/bisifu/code/mmdetection3d/data/SensatUrban
-extra_tag=sensaturban
+dataset_name=titan_m
+root_path=/home/bisifu/code/mmdetection3d/data/Titan_M
+out_dir=/home/bisifu/code/mmdetection3d/data/Titan_M
+extra_tag=titan_m
 
 python -u tools/create_data.py $dataset_name \
         --root-path $root_path \
         --out-dir $out_dir \
         --extra-tag $extra_tag
+
+
+# dataset_name=SensatUrban
+# root_path=/home/bisifu/code/mmdetection3d/data/SensatUrban
+# out_dir=/home/bisifu/code/mmdetection3d/data/SensatUrban
+# extra_tag=sensaturban
+
+# python -u tools/create_data.py $dataset_name \
+#         --root-path $root_path \
+#         --out-dir $out_dir \
+#         --extra-tag $extra_tag

@@ -5,8 +5,12 @@ import numpy as np
 import glob
 
 from tools.dataset_converters.titan_data_utils import TitanData, TitanSegData
+from tools.dataset_converters.titan_m_data_utils import TitanMData, TitanMSegData
 from tools.dataset_converters.hsl_data_utils import HSLData, HSLSegData
-from tools.dataset_converters.sensaturban_data_utils import SensatUrbanData, SensatUrbanSegData
+from tools.dataset_converters.sensaturban_data_utils import (
+    SensatUrbanData,
+    SensatUrbanSegData,
+)
 
 
 def create_outdoor_info_file(
@@ -28,7 +32,12 @@ def create_outdoor_info_file(
         workers (int, optional): Number of threads to be used. Default: 4.
     """
     assert os.path.exists(data_path)
-    assert pkl_prefix in ["titan", "sensaturban", "hsl"], f"unsupported outdoor dataset {pkl_prefix}"
+    assert pkl_prefix in [
+        "titan",
+        "sensaturban",
+        "hsl",
+        "titan_m",
+    ], f"unsupported outdoor dataset {pkl_prefix}"
     save_path = data_path if save_path is None else save_path
     assert os.path.exists(save_path)
 
@@ -49,6 +58,24 @@ def create_outdoor_info_file(
                 label_weight_func=lambda x: 1.0 / np.log(1.2 + x),
             )
             seg_dataset.get_seg_infos()
+
+    elif pkl_prefix == "titan_m":
+        splits = [f"area_{i}" for i in range(1, 33)]
+        for split in splits:
+            dataset = TitanMData(root_path=data_path, split=split)
+            info = dataset.get_infos()
+            filename = os.path.join(save_path, f"{pkl_prefix}_infos_{split}.pkl")
+            mmengine.dump(info, filename, "pkl")
+            print(f"{pkl_prefix} info {split} file is saved to {filename}")
+            seg_dataset = TitanMSegData(
+                data_root=data_path,
+                ann_file=filename,
+                num_points=8192,
+                split=split,
+                label_weight_func=lambda x: 1.0 / np.log(1.2 + x),
+            )
+            seg_dataset.get_seg_infos()
+
     elif pkl_prefix == "HSL" or pkl_prefix == "hsl":
         splits = [f"area_{i}" for i in range(1, 13)]
         for split in splits:
@@ -65,9 +92,10 @@ def create_outdoor_info_file(
                 label_weight_func=lambda x: 1.0 / np.log(1.2 + x),
             )
             seg_dataset.get_seg_infos()
+
     elif pkl_prefix == "sensaturban":
         all_paths = glob.glob(os.path.join(data_path, "origin_data", "*.ply"))
-        splits = [path.split("/")[-1].split('.')[0] for path in all_paths]
+        splits = [path.split("/")[-1].split(".")[0] for path in all_paths]
         for split in splits:
             dataset = SensatUrbanData(root_path=data_path, split=split)
             info = dataset.get_infos()

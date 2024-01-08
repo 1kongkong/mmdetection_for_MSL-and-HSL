@@ -183,6 +183,20 @@ def titan_data_prep(root_path, info_prefix, out_dir):
         filename = osp.join(out_dir, f'{info_prefix}_infos_{split}.pkl')
         update_pkl_infos('titan', out_dir=out_dir, pkl_path=filename)
 
+def titan_m_data_prep(root_path, info_prefix, out_dir):
+    """Prepare the info file for titan_m dataset.
+
+    Args:
+        root_path (str): Path of dataset root.
+        info_prefix (str): The prefix of info filenames.
+        out_dir (str): Output directory of the generated info file.
+    """
+    outdoor.create_outdoor_info_file(
+        root_path, info_prefix, out_dir)
+    splits = [f'area_{i}' for i in range(1, 33)]
+    for split in splits:
+        filename = osp.join(out_dir, f'{info_prefix}_infos_{split}.pkl')
+        update_pkl_infos('titan_m', out_dir=out_dir, pkl_path=filename)
 
 def hsl_data_prep(root_path, info_prefix, out_dir):
     """Prepare the info file for hsl dataset.
@@ -426,6 +440,12 @@ if __name__ == '__main__':
         semantickitti_data_prep(
             info_prefix=args.extra_tag, out_dir=args.out_dir)
     elif args.dataset == 'titan':
+        titan_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag,
+            out_dir=args.out_dir,
+        )
+    elif args.dataset == 'titan_m':
         titan_data_prep(
             root_path=args.root_path,
             info_prefix=args.extra_tag,
