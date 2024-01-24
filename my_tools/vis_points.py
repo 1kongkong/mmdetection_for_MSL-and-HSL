@@ -56,11 +56,11 @@ semseg_right_cmap = (
 )
 
 
-def vis(point_cloud):
+def vis(xyz, color):
     # 创建 Open3D 点云对象
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-
+    pcd.points = o3d.utility.Vector3dVector(xyz)
+    pcd.colors = o3d.utility.Vector3dVector(color)
     # 创建高度图参数
     # height_map = pcd.compute_point_cloud_distance()
 
