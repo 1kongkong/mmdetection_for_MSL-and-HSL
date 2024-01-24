@@ -56,6 +56,9 @@ class TitanMData(object):
                     cloud["c2"],
                     cloud["c3"],
                     cloud["channel_num"],
+                    cloud["idw_c1"],
+                    cloud["idw_c2"],
+                    cloud["idw_c3"],
                 )
             )
             .astype(np.float32)
