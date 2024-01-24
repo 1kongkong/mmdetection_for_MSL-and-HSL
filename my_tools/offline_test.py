@@ -51,7 +51,7 @@ def out_markdown_table(title, data, log_path):
 
 
 def test_ply(preds, labels, dataset, log_path):
-    if dataset.lower() == "titan":
+    if dataset.lower() == "titan" or dataset.lower() == "titanm":
         class_num = 7
         class_name = class_name_dict["titan"]
     elif dataset.lower() == "sensaturban":
@@ -80,12 +80,15 @@ if __name__ == "__main__":
     paths = glob.glob(os.path.join(args.path, "*.ply"))
     if args.dataset.lower() == "titan":
         label_root = "data/Titan/origin_data"
+    elif args.dataset.lower() == "titanm":
+        label_root = "data/Titan_M/origin_data"
     elif args.dataset.lower() == "sensaturban":
         label_root = "data/SensatUrban/test"
     else:
         raise NotImplementedError
     label = []
     pred = []
+    print(label_root)
     for path in paths:
         filename = path.split("/")[-1]
         data = read_ply(os.path.join(label_root, filename))
