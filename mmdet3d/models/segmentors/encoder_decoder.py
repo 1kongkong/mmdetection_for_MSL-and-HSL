@@ -634,6 +634,8 @@ class EncoderDecoder3D(Base3DSegmentor):
         else:
             raise NotImplementedError
 
+        if self.test_cfg.get("voxel_size", None):
+            grid_size = self.test_cfg.voxel_size
         choice = self.voxel_sample(point[:, :3], grid_size)
         point_sub = point[choice, :].contiguous()
 
