@@ -854,6 +854,10 @@ class PointShuffle(BaseTransform):
         if pts_semantic_mask is not None:
             input_dict["pts_semantic_mask"] = pts_semantic_mask[idx]
 
+        # channel_info = input_dict.get("channel_info", None)
+        # if channel_info is not None:
+        #     input_dict["channel_info"] = channel_info[idx]
+
         return input_dict
 
     def __repr__(self) -> str:
@@ -1339,16 +1343,16 @@ class IndoorPatchPointSample(BaseTransform):
             min_ = cur_min - self.enlarge_size
             max_ = cur_max + self.enlarge_size
             cur_choice = (
-                (coords[:,0] >= min_[0])
-                & (coords[:,0] <= max_[0])
-                & (coords[:,1] >= min_[1])
-                & (coords[:,1] <= max_[1])
-                & (coords[:,2] >= min_[2])
-                & (coords[:,2] <= max_[2])
+                (coords[:, 0] >= min_[0])
+                & (coords[:, 0] <= max_[0])
+                & (coords[:, 1] >= min_[1])
+                & (coords[:, 1] <= max_[1])
+                & (coords[:, 2] >= min_[2])
+                & (coords[:, 2] <= max_[2])
             )
             if not cur_choice.any():  # no points in this patch
                 continue
-            
+
             if self.sample_type == "VoxelSp" and np.sum(cur_choice) < 8192:
                 continue
 
@@ -1358,12 +1362,12 @@ class IndoorPatchPointSample(BaseTransform):
             min_ = cur_min - self.eps
             max_ = cur_max + self.eps
             mask = (
-                (cur_coords[:,0] >= min_[0])
-                & (cur_coords[:,0] <= max_[0])
-                & (cur_coords[:,1] >= min_[1])
-                & (cur_coords[:,1] <= max_[1])
-                & (cur_coords[:,2] >= min_[2])
-                & (cur_coords[:,2] <= max_[2])
+                (cur_coords[:, 0] >= min_[0])
+                & (cur_coords[:, 0] <= max_[0])
+                & (cur_coords[:, 1] >= min_[1])
+                & (cur_coords[:, 1] <= max_[1])
+                & (cur_coords[:, 2] >= min_[2])
+                & (cur_coords[:, 2] <= max_[2])
             )
 
             # two criteria for patch sampling, adopted from PointNet++
@@ -1418,20 +1422,20 @@ class IndoorPatchPointSample(BaseTransform):
             boundary_max = np.max(points, axis=0)
             voxel_nums = (
                 (boundary_max - boundary_min) / self.sample_voxel_size + 1
-            ).astype(np.int32)
+            ).astype(np.int64)
             choices = np.zeros((voxel_nums[0] * voxel_nums[1] * voxel_nums[2]))
             voxel_nums[2] = voxel_nums[0] * voxel_nums[1]
             voxel_nums[1] = voxel_nums[0]
             voxel_nums[0] = 1
             voxel_indices = ((points - boundary_min) / self.sample_voxel_size).astype(
-                np.int32
+                np.int64
             )
             # get idx
             voxel_indices = np.sum(voxel_indices * voxel_nums, axis=1)
             # down sample
             unique_indices = np.unique(voxel_indices)
             choices[voxel_indices] = point_idxs
-            choices = choices[unique_indices].astype(np.int32)
+            choices = choices[unique_indices].astype(np.int64)
 
         elif self.sample_type == "FarthestPointSp":
             pass
@@ -1487,6 +1491,10 @@ class IndoorPatchPointSample(BaseTransform):
                 input_dict["eval_ann_info"]["pts_instance_mask"] = pts_instance_mask[
                     choices
                 ]
+
+        # channel_info = input_dict.get("channel_info", None)
+        # if channel_info is not None:
+        #     input_dict["channel_info"] = channel_info[choices]
 
         return input_dict
 

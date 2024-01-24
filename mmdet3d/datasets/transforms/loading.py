@@ -590,6 +590,7 @@ class LoadPointsFromFile(BaseTransform):
                  shift_height: bool = False,
                  use_color: bool = False,
                  norm_intensity: bool = False,
+                 use_channel_info: bool = False,
                  backend_args: Optional[dict] = None) -> None:
         self.shift_height = shift_height
         self.use_color = use_color
@@ -603,6 +604,7 @@ class LoadPointsFromFile(BaseTransform):
         self.load_dim = load_dim
         self.use_dim = use_dim
         self.norm_intensity = norm_intensity
+        self.use_channel_info = use_channel_info
         self.backend_args = backend_args
 
     def _load_points(self, pts_filename: str) -> np.ndarray:
@@ -656,6 +658,9 @@ class LoadPointsFromFile(BaseTransform):
                  np.expand_dims(height, 1), points[:, 3:]], 1)
             attribute_dims = dict(height=3)
 
+        # if self.use_channel_info:
+        #     points, channel_info = points[:, :-1], points[:, -1]
+
         if self.use_color:
             assert len(self.use_dim) >= 6
             if attribute_dims is None:
@@ -671,6 +676,7 @@ class LoadPointsFromFile(BaseTransform):
         points = points_class(
             points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
         results['points'] = points
+        # results['channel_info'] = channel_info
         return results
 
     def __repr__(self) -> str:

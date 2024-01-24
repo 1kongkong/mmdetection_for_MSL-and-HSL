@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .dbsampler import DataBaseSampler
-from .formating import Pack3DDetInputs
+from .formating import Pack3DDetInputs, ChannelSort
 from .loading import (LidarDet3DInferencerLoader, LoadAnnotations3D,
                       LoadImageFromFileMono3D, LoadMultiViewImageFromFiles,
                       LoadPointsFromDict, LoadPointsFromFile,
@@ -32,5 +32,5 @@ __all__ = [
     'RandomShiftScale', 'LoadPointsFromDict', 'Resize3D', 'RandomResize3D',
     'MultiViewWrapper', 'PhotoMetricDistortion3D', 'MonoDet3DInferencerLoader',
     'LidarDet3DInferencerLoader', 'PolarMix', 'LaserMix',
-    'MultiModalityDet3DInferencerLoader'
+    'MultiModalityDet3DInferencerLoader', 'ChannelSort'
 ]
