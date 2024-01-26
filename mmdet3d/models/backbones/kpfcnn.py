@@ -306,7 +306,9 @@ class KPFCNNBackbone(BaseModule):
         """
         xyz = points[..., 0:3].contiguous()
         if points.size(-1) > 3:
-            features = points[..., 3:].permute(0, 2, 1).contiguous()
+            one_feature = torch.ones_like(points[..., 0:1])
+            features = torch.cat([points[..., [3, 4, 5, 8]], one_feature], dim=-1)
+            features = features.permute(0, 2, 1).contiguous()
         else:
             features = None
 
@@ -334,7 +336,6 @@ class KPFCNNBackbone(BaseModule):
         )  # B N 3 and B N C / N 3 and N C
 
         # down sample and query (rand or voxel / knn or ball)
-
         points_downsample, length_downsample = self.sample(points)
 
         # print(length_downsample)
