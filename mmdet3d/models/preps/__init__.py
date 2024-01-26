@@ -1,6 +1,8 @@
 from .cross_attention import (
     CrossInterpolatePreP,
     CrossInterpolatePreP2,
+    CrossInterpolatePreP4,
+    CrossInterpolatePreP5,
     NNInterpolatePreP,
     IDWInterpolatePreP,
     BasePreP,
@@ -10,6 +12,8 @@ from .cross_attention import (
 __all__ = [
     "CrossInterpolatePreP",
     "CrossInterpolatePreP2",
+    "CrossInterpolatePreP4",
+    "CrossInterpolatePreP5",
     "NNInterpolatePreP",
     "IDWInterpolatePreP",
     "BasePreP",
