@@ -1,5 +1,13 @@
 # For Titan seg we usually do 13-class segmentation
-class_names = ("Impervious Ground", "Grass", "Building", "Tree", "Car", "Power Line", "Bare land")
+class_names = (
+    "Impervious Ground",
+    "Grass",
+    "Building",
+    "Tree",
+    "Car",
+    "Power Line",
+    "Bare land",
+)
 metainfo = dict(classes=class_names)
 dataset_type = "TitanSegDataset"
 data_root = "data/Titan/"
@@ -8,8 +16,8 @@ data_prefix = dict(pts="points", pts_semantic_mask="semantic_mask")
 
 backend_args = None
 
-num_points = 50000
-block_size = 75
+num_points = 8192
+block_size = 30
 # train_area = list(range(1,33))
 test_area = [2, 7, 12, 14, 18, 21, 24, 27]
 train_area = [x for x in range(1, 33) if x not in test_area]
@@ -20,8 +28,8 @@ train_pipeline = [
         coord_type="DEPTH",
         shift_height=False,
         use_color=True,
-        load_dim=6,  # 原数据的列数
-        use_dim=[0, 1, 2, 3, 4, 5],  # 保留的列
+        load_dim=13,  # 原数据的列数
+        use_dim=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],  # 保留的列
         backend_args=backend_args,
     ),
     dict(
@@ -49,11 +57,14 @@ train_pipeline = [
         flip_ratio_bev_vertical=0.0,
         flip_box3d=False,
     ),
-    dict(type="GlobalRotScaleTrans", rot_range=[-0.78539816, 0.78539816], scale_ratio_range=[0.95, 1.05]),
+    dict(
+        type="GlobalRotScaleTrans",
+        rot_range=[-0.78539816, 0.78539816],
+        scale_ratio_range=[0.95, 1.05],
+    ),
     dict(
         type="RandomJitterPoints",
     ),
-    # dict(type='NormalizePointsColor', color_mean=None),
     dict(type="Pack3DDetInputs", keys=["points", "pts_semantic_mask"]),
 ]
 test_pipeline = [
@@ -62,8 +73,8 @@ test_pipeline = [
         coord_type="DEPTH",
         shift_height=False,
         use_color=True,
-        load_dim=6,
-        use_dim=[0, 1, 2, 3, 4, 5],
+        load_dim=13,  # 原数据的列数
+        use_dim=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],  # 保留的列
         backend_args=backend_args,
     ),
     dict(
@@ -74,7 +85,6 @@ test_pipeline = [
         with_seg_3d=True,
         backend_args=backend_args,
     ),
-    # dict(type='NormalizePointsColor', color_mean=None),
     dict(type="Pack3DDetInputs", keys=["points"]),
 ]
 
@@ -87,8 +97,8 @@ eval_pipeline = [
         coord_type="DEPTH",
         shift_height=False,
         use_color=True,
-        load_dim=6,
-        use_dim=[0, 1, 2, 3, 4, 5],
+        load_dim=13,  # 原数据的列数
+        use_dim=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],  # 保留的列
         backend_args=backend_args,
     ),
     dict(
@@ -99,7 +109,6 @@ eval_pipeline = [
         with_seg_3d=True,
         backend_args=backend_args,
     ),
-    # dict(type='NormalizePointsColor', color_mean=None),
     dict(type="Pack3DDetInputs", keys=["points"]),
 ]
 
@@ -109,8 +118,8 @@ tta_pipeline = [
         coord_type="DEPTH",
         shift_height=False,
         use_color=True,
-        load_dim=6,
-        use_dim=[0, 1, 2, 3, 4, 5],
+        load_dim=13,  # 原数据的列数
+        use_dim=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],  # 保留的列
         backend_args=backend_args,
     ),
     dict(
@@ -121,7 +130,6 @@ tta_pipeline = [
         with_seg_3d=True,
         backend_args=backend_args,
     ),
-    # dict(type="NormalizePointsColor", color_mean=None),
     dict(
         type="TestTimeAug",
         transforms=[

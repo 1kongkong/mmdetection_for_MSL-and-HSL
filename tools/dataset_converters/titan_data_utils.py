@@ -37,15 +37,33 @@ class TitanData(object):
         path = osp.join(self.data_dir, self.split + ".ply")
         print(f"Start process {path}")
         info = dict()
-        pc_info = {"num_features": 6, "lidar_idx": f"{self.split}"}
+        pc_info = {"num_features": 13, "lidar_idx": f"{self.split}"}
         info["point_cloud"] = pc_info
         pts_filename = osp.join(self.root_dir, "titan_data", f"{self.split}_point.npy")
-        pts_semantic_mask_path = osp.join(self.root_dir, "titan_data", f"{self.split}_sem_label.npy")
+        pts_semantic_mask_path = osp.join(
+            self.root_dir, "titan_data", f"{self.split}_sem_label.npy"
+        )
         mmengine.mkdir_or_exist(osp.join(self.root_dir, "titan_data"))
 
         cloud = read_ply(path)
         point = (
-            np.vstack((cloud["x"], cloud["y"], cloud["z"], cloud["c1"], cloud["c2"], cloud["c3"]))
+            np.vstack(
+                (
+                    cloud["x"],
+                    cloud["y"],
+                    cloud["z"],
+                    cloud["c1"],
+                    cloud["c2"],
+                    cloud["c3"],
+                    cloud["idw_c1"],
+                    cloud["idw_c2"],
+                    cloud["idw_c3"],
+                    cloud["nn_c1"],
+                    cloud["nn_c2"],
+                    cloud["nn_c3"],
+                    cloud["channel_info"],
+                )
+            )
             .astype(np.float32)
             .T
         )
@@ -83,7 +101,9 @@ class TitanSegData(object):
             label weight. Default: None.
     """
 
-    def __init__(self, data_root, ann_file, num_points, split="Area_1", label_weight_func=None):
+    def __init__(
+        self, data_root, ann_file, num_points, split="Area_1", label_weight_func=None
+    ):
         self.data_root = data_root
         self.data_infos = mmengine.load(ann_file)
         self.split = split
@@ -93,20 +113,26 @@ class TitanSegData(object):
         self.cat_ids = np.array([0, 1, 2, 3, 4, 5, 6])  # used for seg task
         self.ignore_index = len(self.cat_ids)
 
-        self.cat_id2class = np.ones((self.all_ids.shape[0],), dtype=np.int64) * self.ignore_index
+        self.cat_id2class = (
+            np.ones((self.all_ids.shape[0],), dtype=np.int64) * self.ignore_index
+        )
 
         for i, cat_id in enumerate(self.cat_ids):
             self.cat_id2class[cat_id] = i
 
         self.label_weight_func = (
-            (lambda x: 1.0 / np.log(1.2 + x)) if label_weight_func is None else label_weight_func
+            (lambda x: 1.0 / np.log(1.2 + x))
+            if label_weight_func is None
+            else label_weight_func
         )
 
     def get_seg_infos(self):
         scene_idxs, label_weight = self.get_scene_idxs_and_label_weight()
         save_folder = osp.join(self.data_root, "seg_info")
         mmengine.mkdir_or_exist(save_folder)
-        np.save(osp.join(save_folder, f"{self.split}_resampled_scene_idxs.npy"), scene_idxs)
+        np.save(
+            osp.join(save_folder, f"{self.split}_resampled_scene_idxs.npy"), scene_idxs
+        )
         np.save(osp.join(save_folder, f"{self.split}_label_weight.npy"), label_weight)
         print(f"{self.split} resampled area index and label weight saved")
 
@@ -132,13 +158,15 @@ class TitanSegData(object):
         label_weight = np.zeros((num_classes + 1,))  # ignore_index
         # for data_info in self.data_infos:
         for data_info in self.data_infos:
-            label = self._convert_to_label(osp.join(self.data_root, data_info["pts_semantic_mask_path"]))
+            label = self._convert_to_label(
+                osp.join(self.data_root, data_info["pts_semantic_mask_path"])
+            )
             num_point_all.append(label.shape[0])
             class_count, _ = np.histogram(label, range(num_classes + 2))
             label_weight += class_count
 
         sample_prob = np.array(num_point_all) / float(np.sum(num_point_all))
-        num_iter = int(np.sum(num_point_all) / float(self.num_points) / 4) # 适当降低采样次数
+        num_iter = int(np.sum(num_point_all) / float(self.num_points) / 4)  # 适当降低采样次数
         scene_idxs = []
         for idx in range(len(self.data_infos)):
             scene_idxs.extend([idx] * int(round(sample_prob[idx] * num_iter)))
