@@ -57,14 +57,13 @@ train_pipeline = [
         scale_ratio_range=[0.95, 1.05],
     ),
     dict(type="PointShuffle"),
-    # dict(type="ChannelSort"),
     dict(type="Pack3DDetInputs", keys=["points", "pts_semantic_mask"]),
 ]
 # model settings
 model = dict(
     type="PreP_EncoderDecoder3D",
     prep=dict(
-        type="CrossInterpolatePreP2",
+        type="CrossInterpolatePreP3",
         k=6,
     ),
     backbone=dict(
@@ -118,23 +117,41 @@ default_hooks = dict(
         rule="greater",
     )
 )
-# custom_hooks = [
-#     dict(
-#         type="Change_spe_loss_factor",
-#         update_epoch=[1, 5, 10],
-#         factor=[10, 5, 1],
-#     )
-# ]
+custom_hooks = [
+    dict(
+        type="Change_spe_loss_factor",
+        update_epoch=[1],
+        # update_epoch=[1, 5, 10],
+        # update_epoch=[1, 5, 10],
+        # factor=[10],
+        factor=[1],
+        # factor=[10, 5, 1],
+        # factor=[10, 5, 1],
+    )
+]
+
 # 混合精度训练
 # optim_wrapper = dict(
 #     type="AmpOptimWrapper",
 #     loss_scale="dynamic",
 #     optimizer=dict(type="AdamW", lr=0.001, weight_decay=0.001, betas=(0.95, 0.99)),
+#     paramwise_cfg=dict(
+#         custom_keys={
+#             "prep": dict(lr_mult=0.1, decay_mult=1.0),
+#         },
+#         norm_decay_mult=0.0,
+#     ),
 #     clip_grad=None,
 # )
 optim_wrapper = dict(
     type="OptimWrapper",
     optimizer=dict(type="AdamW", lr=0.001, weight_decay=0.001, betas=(0.95, 0.99)),
+    # paramwise_cfg=dict(
+    #     custom_keys={
+    #         "prep": dict(lr_mult=0.1, decay_mult=1.0),
+    #     },
+    #     norm_decay_mult=0.0,
+    # ),
     clip_grad=None,
 )
 
