@@ -19,13 +19,14 @@ kpfcnn=configs/kpfcnn/kpfcnn_1xb6-cosine-100e_vs_sensaturban-seg.py
 kpfcnn_ad=configs/kpfcnn/kpfcnn_1xb6-cosine-100e_sensaturban-seg.py
 dual_kpfcnn=configs/dual_kpfcnn/dual_kpfcnn_1xb6-cosine-100e_sensaturban-seg.py
 dual_kpfcnn_gr=configs/dual_kpfcnn/dual_kpfcnn_1xb6-cosine-100e_gr_sensaturban-seg.py
+dual_kpfcnn_gr_vca=configs/dual_kpfcnn/dual_kpfcnn_1xb6-cosine-100e_gr_sensaturban-seg_vca.py
 paconv=configs/paconv/paconv_ssg-cuda_8xb8-cosine-100e_sensaturban-seg.py
 
 # CONFIG=configs/paconv/paconv_ssg-cuda_8xb8-cosine-80e_sensaturban-seg.py
 
 GPU_num=$(nvidia-smi -L | wc -l)
 GPU_used=$(expr $GPU_num - 3)
-for CONFIG in {${dual_kpfcnn_gr},}
+for CONFIG in {${dual_kpfcnn_gr_vca},}
 do 
     CUDA_VISIBLE_DEVICES=$GPU_used \
     python tools/train.py \

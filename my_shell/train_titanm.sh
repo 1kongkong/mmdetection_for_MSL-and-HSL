@@ -13,10 +13,11 @@ kpcross_kpfcnn_gr_vca=configs/dual_kpfcnn/kpcross_dual_kpfcnn_1xb6-cosine-100e_g
 cross_kpfcnn_gr_vca=configs/dual_kpfcnn/cross_dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_vca.py
 idw_kpfcnn_gr_vca=configs/dual_kpfcnn/idw_dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_vca.py
 nn_kpfcnn_gr_vca=configs/dual_kpfcnn/nn_dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_vca.py
+cross2_kpfcnn_gr_vca=configs/dual_kpfcnn/cross2_dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_vca.py
 
 GPU_num=$(nvidia-smi -L | wc -l)
-GPU_used=$(expr $GPU_num - 1)
-for CONFIG in {${kpcross_kpfcnn_gr_vca},${cross_kpfcnn_gr_vca},}
+GPU_used=$(expr $GPU_num - 2)
+for CONFIG in {${cross2_kpfcnn_gr_vca},}
 do 
     CUDA_VISIBLE_DEVICES=$GPU_used \
     python tools/train.py \

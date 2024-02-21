@@ -5,16 +5,15 @@ export PYTHONPATH=$PYTHONPATH:$workdir
 cd $workdir
 
 pcd_path=data/Titan/points
-# work_dirs/dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg/20231229_125813/dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg/best_miou_epoch_36.pth
-model_type=dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg
-train_date=20231229_125813
+# work_dirs/dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_vca/20240105_101628/dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_vca/best_miou_epoch_36.pth
+model_type=dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_vca
+train_date=20240105_101628
 model_pth=best_miou_epoch_36
 
 work_dirs=work_dirs/${model_type}/${train_date}
 config=work_dirs/${model_type}/${train_date}/vis_data/config.py
 check_point=${work_dirs}/${model_type}/${model_pth}.pth
 
-# python tools/test.py ${config} ${check_point} --show --show-dir ${work_dirs} --task lidar_seg
 
 for i in {2,7,12,14,18,21,24,27}
 do 

@@ -21,6 +21,9 @@ kpfcnn_ad=configs/kpfcnn/kpfcnn_1xb6-cosine-100e_titan-seg.py
 kpfcnn_gr=configs/kpfcnn/kpfcnn_1xb6-cosine-100e_gr_titan-seg.py
 dual_kpfcnn=configs/dual_kpfcnn/dual_kpfcnn_1xb6-cosine-100e_titan-seg.py
 dual_kpfcnn_gr=configs/dual_kpfcnn/dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg.py
+dual_kpfcnn_gr_sk=configs/dual_kpfcnn/dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_sk.py
+dual_kpfcnn_gr_vca=configs/dual_kpfcnn/dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_vca.py
+dual_kpfcnn_gr_ca=configs/dual_kpfcnn/dual_kpfcnn_1xb6-cosine-100e_gr_titan-seg_ca.py
 paconv=configs/paconv/paconv_ssg-cuda_8xb8-cosine-100e_titan-seg.py
 point_transformer=configs/point_transformer/point_transformer_1xb8-cosine-100e_titan-seg.py
 point_transformer_=configs/point_transformer/point_transformer_1xb8-cosine-150e_titan-seg.py
@@ -31,7 +34,7 @@ randlanet_=configs/randlanet/randlanet_1xb6-cosine-100e_titan-seg-big_pt.py
 
 GPU_num=$(nvidia-smi -L | wc -l)
 GPU_used=$(expr $GPU_num - 2)
-for CONFIG in {${dual_kpfcnn},${kpfcnn_ad},}
+for CONFIG in {${dual_kpfcnn_gr_vca},}
 do 
     CUDA_VISIBLE_DEVICES=$GPU_used \
     python tools/train.py \
