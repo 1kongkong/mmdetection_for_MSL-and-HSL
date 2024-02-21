@@ -169,8 +169,8 @@ train_dataloader = dict(
     ),
 )
 test_dataloader = dict(
-    batch_size=4,
-    num_workers=4,
+    batch_size=12,
+    num_workers=12,
     persistent_workers=True,
     drop_last=False,
     sampler=dict(type="DefaultSampler", shuffle=False),

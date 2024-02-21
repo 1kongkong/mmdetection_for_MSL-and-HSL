@@ -17,7 +17,7 @@ model = dict(
         ),
         weight_norm=False,
         norm_cfg=dict(type="BN1d"),
-        act_cfg=dict(type="LeakyReLU", negative_slope=0.1),
+        act_cfg=dict(type="ReLU"),
     ),
     decode_head=dict(
         type="KPFCNNHead",
@@ -26,7 +26,7 @@ model = dict(
         dropout_ratio=0.5,
         conv_cfg=dict(type="Conv1d"),
         norm_cfg=dict(type="BN1d"),
-        act_cfg=dict(type="LeakyReLU", negative_slope=0.1),
+        act_cfg=dict(type="ReLU"),
         loss_decode=dict(
             type="mmdet.CrossEntropyLoss",
             use_sigmoid=False,

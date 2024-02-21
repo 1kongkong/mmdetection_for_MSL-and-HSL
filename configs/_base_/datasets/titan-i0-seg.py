@@ -29,7 +29,7 @@ train_pipeline = [
         shift_height=False,
         use_color=True,
         load_dim=13,  # 原数据的列数
-        use_dim=[0, 1, 2, 9, 10, 11],  # 保留的列
+        use_dim=[0, 1, 2, 3, 4, 5],  # 保留的列
         backend_args=backend_args,
     ),
     dict(
@@ -74,7 +74,7 @@ test_pipeline = [
         shift_height=False,
         use_color=True,
         load_dim=13,  # 原数据的列数
-        use_dim=[0, 1, 2, 9, 10, 11],  # 保留的列
+        use_dim=[0, 1, 2, 3, 4, 5],  # 保留的列
         backend_args=backend_args,
     ),
     dict(
@@ -98,7 +98,7 @@ eval_pipeline = [
         shift_height=False,
         use_color=True,
         load_dim=13,  # 原数据的列数
-        use_dim=[0, 1, 2, 9, 10, 11],  # 保留的列
+        use_dim=[0, 1, 2, 3, 4, 5],  # 保留的列
         backend_args=backend_args,
     ),
     dict(
@@ -119,7 +119,7 @@ tta_pipeline = [
         shift_height=False,
         use_color=True,
         load_dim=13,  # 原数据的列数
-        use_dim=[0, 1, 2, 9, 10, 11],  # 保留的列
+        use_dim=[0, 1, 2, 3, 4, 5],  # 保留的列
         backend_args=backend_args,
     ),
     dict(
