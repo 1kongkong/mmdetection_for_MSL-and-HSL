@@ -166,13 +166,17 @@ class CrossAttention(nn.Module):
         self.W_Q = nn.Conv1d(input_dim, input_dim, 1, 1, bias=False)
         self.W_K = nn.Conv1d(input_dim, input_dim, 1, 1, bias=False)
         self.W_V = nn.Conv1d(input_dim, input_dim, 1, 1)
-        self.scores = self.linear_p = nn.Sequential(
-            nn.Conv2d(4, 4, 1),
-            nn.BatchNorm2d(4),
+        self.pos = nn.Sequential(
+            nn.Conv2d(3, 3, 1),
+            nn.BatchNorm2d(3),
             nn.ReLU(inplace=True),
-            nn.Conv2d(4, 1, 1),
-            nn.BatchNorm2d(1),
+            nn.Conv2d(3, 1, 1),
+        )
+        self.scores = nn.Sequential(
+            nn.Conv2d(2, 2, 1),
+            nn.BatchNorm2d(2),
             nn.ReLU(inplace=True),
+            nn.Conv2d(2, 1, 1),
         )
 
     def forward(self, coord, feature_spa, feature_spe, neighbor_indices):
@@ -186,7 +190,10 @@ class CrossAttention(nn.Module):
         V = self.W_V(feature_spe)
         neighbor_coord = gather(coord, neighbor_indices, True)
         coord = coord.unsqueeze(-1)
-        scores_coord = neighbor_coord - coord  # B 3 N K
+        coord_diff = neighbor_coord - coord  # B 3 N K
+        coord_gaussian = torch.exp(-2 * (coord_diff) ** 2)
+        scores_coord = self.pos(coord_gaussian)
+
         K = gather(K, neighbor_indices, True)  # B C N K
         V = gather(V, neighbor_indices, True)  # B C N K
 

@@ -146,21 +146,21 @@ class KPConv(nn.Module):
         # Influence decrease linearly with the distance, and get to zero when d = sigma.
         if not self.radius:
             neighbor_weights = torch.clamp(
-                1 - torch.sqrt(sq_distances) / (m_dist.unsqueeze(-1) / 2.1 + 1e-6),
+                1 - torch.sqrt(sq_distances) / (m_dist.unsqueeze(-1) / 2.1 + 1e-3),
                 min=0.0,
             )
         else:
             neighbor_weights = torch.clamp(
-                1 - torch.sqrt(sq_distances) / (self.radius / 2.1 + 1e-6), min=0.0
+                1 - torch.sqrt(sq_distances) / (self.radius / 2.1 + 1e-3), min=0.0
             )
 
         # weight normalization
         if self.weight_norm:
             neighbor_weights = neighbor_weights / (
-                torch.sum(neighbor_weights, dim=-2, keepdim=True) + 1e-6
+                torch.sum(neighbor_weights, dim=-2, keepdim=True) + 1e-3
             )  # B,N,K,k
             mask_ = torch.sum(neighbor_weights, dim=2)  # B,N,k
-            mask = torch.sum(torch.gt(mask_, 1e-3), dim=-1, keepdim=False)  # B,N
+            mask = torch.sum(torch.gt(mask_, 1e-6), dim=-1, keepdim=False)  # B,N
 
         neighbor_weights = torch.transpose(neighbor_weights, 2, 3)  # B,N,k,K
 
@@ -178,7 +178,7 @@ class KPConv(nn.Module):
 
         # normalization term.
         if self.weight_norm:
-            output_feats = output_feats / mask.unsqueeze(-1)
+            output_feats = output_feats / (mask.unsqueeze(-1) + 1e-3)
             # return output_feats.permute(0, 2, 1).contiguous()  # B,out_dim,N
 
         # neighbor_feats_sum = torch.sum(neighbors_feats, dim=-1)  # B,N,K
@@ -207,7 +207,7 @@ class KPConvBlock(nn.Module):
         neighbor_num=20,
         weight_norm=False,
         norm_cfg: Optional[Dict] = dict(type="BN1d"),
-        act_cfg: Optional[Dict] = dict(type="LeakyReLU", negative_slope=0.1),
+        act_cfg: Optional[Dict] = dict(type="ReLU"),
     ):
         r"""Initialize a KPConv block with ReLU and BatchNorm.
 
@@ -254,7 +254,7 @@ class KPResNetBlock(nn.Module):
         weight_norm=False,
         strided=False,
         norm_cfg: Optional[Dict] = dict(type="BN1d"),
-        act_cfg: Optional[Dict] = dict(type="LeakyReLU", negative_slope=0.1),
+        act_cfg: Optional[Dict] = dict(type="ReLU"),
     ):
         r"""Initialize a ResNet bottleneck block.
 

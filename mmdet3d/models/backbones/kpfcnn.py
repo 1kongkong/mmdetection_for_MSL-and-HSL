@@ -28,13 +28,14 @@ class KPFCNNBackbone(BaseModule):
         kernel_size: int,
         k_neighbor: int,
         kpconv_channels: List[List[int]],
+        spa_used: bool = False,
         sample_method: str = "rand",  # {'rand','grid','grid+rand'}
         query_method: str = "knn",  # {'knn','ball'}
         voxel_size: List[float] = None,
         radius: List[float] = None,
         weight_norm: bool = False,
         norm_cfg: ConfigType = dict(type="BN1d"),
-        act_cfg: ConfigType = dict(type="LeakyReLU", negative_slope=0.1),
+        act_cfg: ConfigType = dict(type="ReLU"),
     ):
         super(KPFCNNBackbone, self).__init__()
 
@@ -60,6 +61,7 @@ class KPFCNNBackbone(BaseModule):
         self.voxel_size = voxel_size
         self.sample_method = sample_method
         self.query_method = query_method
+        self.spa_used = spa_used
         # 可选的下采样方法(首次下采样在dataloader pipline, 模型里均为后续下采样)
         if "rand" in sample_method:
             self.sample = self._random_sample_batch
@@ -99,9 +101,9 @@ class KPFCNNBackbone(BaseModule):
                             radius[i - 1] if radius else radius,
                             k_neighbor,
                             weight_norm,
-                            strided=True
-                            if j == len(self.channel_list[i]) - 1
-                            else False,
+                            strided=(
+                                True if j == len(self.channel_list[i]) - 1 else False
+                            ),
                             norm_cfg=norm_cfg,
                             act_cfg=act_cfg,
                         )
@@ -306,8 +308,11 @@ class KPFCNNBackbone(BaseModule):
         """
         xyz = points[..., 0:3].contiguous()
         if points.size(-1) > 3:
-            one_feature = torch.ones_like(points[..., 0:1])
-            features = torch.cat([points[..., [3, 4, 5, 8]], one_feature], dim=-1)
+            if self.spa_used:
+                features = points[..., 3:9]
+            else:
+                one_feature = torch.ones_like(points[..., 0:1])
+                features = torch.cat([points[..., [3, 4, 5, 8]], one_feature], dim=-1)
             features = features.permute(0, 2, 1).contiguous()
         else:
             features = None

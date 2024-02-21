@@ -23,7 +23,8 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
     def __init__(
         self,
         num_point: int,
-        in_channels: int,
+        in_channels_spa: int,
+        in_channels_spe: int,
         kernel_size: int,
         k_neighbor: int,
         kpconv_channels: List[List[int]],
@@ -31,13 +32,14 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
         query_method: str = "knn",  # {'knn','ball'}
         voxel_size: List[float] = None,
         radius: List[float] = None,
-        weight_norm: bool = False,
+        weight_norm_spa: bool = False,
+        weight_norm_spe: bool = False,
         norm_cfg: ConfigType = dict(type="BN1d"),
         act_cfg: ConfigType = dict(type="LeakyReLU", negative_slope=0.1),
     ):
         super(Dual_KPFCNNBackbone, self).__init__(
             num_point=num_point,
-            in_channels=in_channels // 2,
+            in_channels=in_channels_spa,
             kernel_size=kernel_size,
             k_neighbor=k_neighbor,
             kpconv_channels=kpconv_channels,
@@ -45,7 +47,7 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
             query_method=query_method,
             voxel_size=voxel_size,
             radius=radius,
-            weight_norm=weight_norm,
+            weight_norm=weight_norm_spa,
             norm_cfg=norm_cfg,
             act_cfg=act_cfg,
         )
@@ -53,7 +55,7 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
         self.kpconvs_0 = self.kpconvs
         self.kpconvs_1 = nn.ModuleList()
         self.fusions = nn.ModuleList()
-
+        self.channel_list[0] = [in_channels_spe]
         for i in range(1, len(self.channel_list)):
             # self.fusions.append(fusion_block(self.channel_list[i][-1], norm_cfg=norm_cfg, act_cfg=act_cfg))
             # self.fusions.append(cross_att_fusion_block(self.channel_list[i][-1]))
@@ -67,7 +69,7 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
                             self.channel_list[i][j],
                             radius[i - 1] if radius else radius,
                             k_neighbor,
-                            weight_norm,
+                            weight_norm_spe,
                             norm_cfg=norm_cfg,
                             act_cfg=act_cfg,
                         )
@@ -80,10 +82,10 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
                             self.channel_list[i][j],
                             radius[i - 1] if radius else radius,
                             k_neighbor,
-                            weight_norm,
-                            strided=True
-                            if j == len(self.channel_list[i]) - 1
-                            else False,
+                            weight_norm_spe,
+                            strided=(
+                                True if j == len(self.channel_list[i]) - 1 else False
+                            ),
                             norm_cfg=norm_cfg,
                             act_cfg=act_cfg,
                         )
