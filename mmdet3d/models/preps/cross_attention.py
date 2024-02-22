@@ -308,7 +308,7 @@ class CrossInterpolatePreP2(NNInterpolatePreP):
             num_sample=k,
         )
         self.CrossAttention3 = SpectralAttention(6, 3)
-            
+
         self.CrossAttention4 = SpectralAttention(6, 3)
 
     def forward(self, inputs):
@@ -415,7 +415,6 @@ class CrossInterpolatePreP3(NNInterpolatePreP):
         self.CrossAttention1 = SpectralAttention(3, 3)
         self.CrossAttention2 = SpectralAttention(3, 3)
         self.CrossAttention3 = SpectralAttention(3, 3)
-        self.CrossAttention4 = SpectralAttention(3, 3)
 
     def forward(self, inputs):
         points = self.parse_inputs(inputs)
@@ -440,44 +439,38 @@ class CrossInterpolatePreP3(NNInterpolatePreP):
         self.spe_pred = []
         intensity = features[:, :3, :].clone()
 
-        print("---SpatialAttention1---")
+        # print("---SpatialAttention1---")
         channel_1 = self.SpatialAttention1(
             xyz, intensity[:, 0:1, :], mask_idx[..., : self.k]
         )
 
-        print("---SpatialAttention2---")
+        # print("---SpatialAttention2---")
         channel_2 = self.SpatialAttention2(
             xyz, intensity[:, 1:2, :], mask_idx[..., self.k : 2 * self.k]
         )
 
-        print("---SpatialAttention3---")
+        # print("---SpatialAttention3---")
         channel_3 = self.SpatialAttention3(
             xyz, intensity[:, 2:, :], mask_idx[..., 2 * self.k :]
         )
         features_spe = torch.cat([channel_1, channel_2, channel_3], dim=1)
         self.spe_pred.append(features_spe.permute(0, 2, 1))
 
-        print("---SpectralAttention1---")
-        self_idx = knn(self.k, xyz, xyz, self.patch_len, self.patch_len)
+        # print("---SpectralAttention1---")
+        self_idx = knn(self.k + 1, xyz, xyz, self.patch_len, self.patch_len)
         features_spe = self.CrossAttention1(
             xyz, features_spe, features_spe, self_idx[..., 1:]
         )
         self.spe_pred.append(features_spe.permute(0, 2, 1))
 
-        print("---SpectralAttention2---")
+        # print("---SpectralAttention2---")
         features_spe = self.CrossAttention2(
             xyz, features_spe, features_spe, self_idx[..., 1:]
         )
         self.spe_pred.append(features_spe.permute(0, 2, 1))
 
-        print("---SpectralAttention3---")
+        # print("---SpectralAttention3---")
         features_spe = self.CrossAttention3(
-            xyz, features_spe, features_spe, self_idx[..., 1:]
-        )
-        self.spe_pred.append(features_spe.permute(0, 2, 1))
-
-        print("---SpectralAttention4---")
-        features_spe = self.CrossAttention4(
             xyz, features_spe, features_spe, self_idx[..., 1:]
         )
         self.spe_pred.append(features_spe.permute(0, 2, 1))
@@ -743,12 +736,12 @@ class SpatialAttention(nn.Module):
 
         pos = xyz_neighbor - xyz.permute(0, 2, 1).unsqueeze(-1)  # B 3 N K
         pos_gaussian = torch.exp(-2 * (pos) ** 2)
-        print(f"pos:{pos[0,:,0,:]}")
-        print(f"pos_dist:{torch.sum(pos[0,:,0,:]**2,dim=0,keepdim=True)}")
+        # print(f"pos:{pos[0,:,0,:]}")
+        # print(f"pos_dist:{torch.sum(pos[0,:,0,:]**2,dim=0,keepdim=True)}")
         w = self.linear_p(pos_gaussian)  # B,C,N,K
-        print(f"w:{w[0,:,0,:]}")
+        # print(f"w:{w[0,:,0,:]}")
         w = self.softmax(w)
-        print(f"w softmax:{w[0,:,0,:]}")  # B C N K
+        # print(f"w softmax:{w[0,:,0,:]}")  # B C N K
         # print("********************")
 
         # print(f"conv1:{self.linear_p[0].conv.weight}")
@@ -840,18 +833,18 @@ class SpectralAttention(nn.Module):
 
         feat = k_neighbor - q.unsqueeze(-1)
         feat_gaussian = torch.exp(-2 * (feat) ** 2)
-        print(f"feat:{feat[0,:,0,:]}")
-        print(f"feat_dist:{torch.sum(feat[0,:,0,:]**2,dim=0,keepdim=True)}")
+        # print(f"feat:{feat[0,:,0,:]}")
+        # print(f"feat_dist:{torch.sum(feat[0,:,0,:]**2,dim=0,keepdim=True)}")
 
         pos = xyz_neighbor - xyz.permute(0, 2, 1).unsqueeze(-1)  # B 3 N K
         pos_gaussian = torch.exp(-2 * (pos) ** 2)
-        print(f"pos:{pos[0,:,0,:]}")
-        print(f"pos_dist:{torch.sum(pos[0,:,0,:]**2,dim=0,keepdim=True)}")
+        # print(f"pos:{pos[0,:,0,:]}")
+        # print(f"pos_dist:{torch.sum(pos[0,:,0,:]**2,dim=0,keepdim=True)}")
 
         w = self.linear_w(torch.cat([feat_gaussian, pos_gaussian], dim=1))  # B,C,N,K
-        print(f"w:{w[0,:,0,:]}")
+        # print(f"w:{w[0,:,0,:]}")
         w = self.softmax(w)
-        print(f"w softmax:{w[0,:,0,:]}")  # B C N K
+        # print(f"w softmax:{w[0,:,0,:]}")  # B C N K
 
         x = torch.sum(i_neighbor * w, dim=-1)
 

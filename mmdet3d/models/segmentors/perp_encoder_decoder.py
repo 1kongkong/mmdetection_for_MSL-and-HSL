@@ -45,6 +45,8 @@ class PreP_EncoderDecoder3D(EncoderDecoder3D):
     def extract_feat(self, batch_inputs: Tensor) -> dict:
         """Extract features from points."""
         batch_inputs = self.prep(batch_inputs)
+        if self.train_cfg.get("stack", True):
+            batch_inputs = torch.stack(batch_inputs)
         x = self.backbone(batch_inputs)
         if self.with_neck:
             x = self.neck(x)
@@ -70,8 +72,8 @@ class PreP_EncoderDecoder3D(EncoderDecoder3D):
         """
 
         # extract features using backbone
-        if self.train_cfg.get("stack", True):
-            batch_inputs_dict["points"] = torch.stack(batch_inputs_dict["points"])
+        # if self.train_cfg.get("stack", True):
+        #     batch_inputs_dict["points"] = torch.stack(batch_inputs_dict["points"])
 
         # from my_tools.vis_points import vis
         # import pdb
@@ -181,6 +183,55 @@ class PreP_EncoderDecoder3D(EncoderDecoder3D):
 
     #     return preds.transpose(0, 1).contiguous()  # to [num_classes, K*N]
 
+    def slide_inference(self, point: Tensor, input_meta: dict, rescale: bool) -> Tensor:
+        """Inference by sliding-window with overlap.
+
+        Args:
+            point (Tensor): Input points of shape [N, 3+C].
+            input_meta (dict): Meta information of input sample.
+            rescale (bool): Whether transform to original number of points.
+                Will be used for voxelization based segmentors.
+
+        Returns:
+            Tensor: The output segmentation map of shape [num_classes, N].
+        """
+        num_points = self.test_cfg.num_points
+        block_size = self.test_cfg.block_size
+        sample_rate = self.test_cfg.sample_rate
+        use_normalized_coord = self.test_cfg.use_normalized_coord
+        batch_size = self.test_cfg.batch_size * num_points
+
+        # patch_points is of shape [K*N, 3+C], patch_idxs is of shape [K*N]
+        patch_points, patch_idxs = self._sliding_patch_generation(
+            point, num_points, block_size, sample_rate, use_normalized_coord
+        )
+        feats_dim = patch_points.shape[1]
+        seg_logits = []  # save patch predictions
+
+        for batch_idx in range(0, patch_points.shape[0], batch_size):
+            batch_points = patch_points[batch_idx : batch_idx + batch_size]
+            batch_points = batch_points.view(-1, num_points, feats_dim)
+            # batch_seg_logit is of shape [B, num_classes, N]
+            batch_points = [batch_points[i, ...] for i in range(batch_points.shape[0])]
+            batch_seg_logit = self.encode_decode(
+                batch_points, [input_meta] * batch_size
+            )
+            batch_seg_logit = batch_seg_logit.transpose(1, 2).contiguous()
+            seg_logits.append(batch_seg_logit.view(-1, self.num_classes))
+
+        # aggregate per-point logits by indexing sum and dividing count
+        seg_logits = torch.cat(seg_logits, dim=0)  # [K*N, num_classes]
+        expand_patch_idxs = patch_idxs.unsqueeze(1).repeat(1, self.num_classes)
+        preds = point.new_zeros((point.shape[0], self.num_classes)).scatter_add_(
+            dim=0, index=expand_patch_idxs, src=seg_logits
+        )
+        count_mat = torch.bincount(patch_idxs)
+        preds = preds / count_mat[:, None]
+
+        # TODO: if rescale and voxelization segmentor
+
+        return preds.transpose(0, 1)  # to [num_classes, K*N]
+
     def _forward(
         self, batch_inputs_dict: dict, batch_data_samples: OptSampleList = None
     ) -> Tensor:
@@ -199,8 +250,8 @@ class PreP_EncoderDecoder3D(EncoderDecoder3D):
         Returns:
             Tensor: Forward output of model without any post-processes.
         """
-        if self.train_cfg.get("stack", True):
-            batch_inputs_dict["points"] = torch.stack(batch_inputs_dict["points"])
+        # if self.train_cfg.get("stack", True):
+        #     batch_inputs_dict["points"] = torch.stack(batch_inputs_dict["points"])
 
         x = self.extract_feat(batch_inputs_dict["points"])
         return self.decode_head.forward(x)
