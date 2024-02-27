@@ -104,7 +104,6 @@ class Dual_PointTransformerBackbone(PointTransformerBackbone):
         xyz, features = self._split_point_feats(points)
 
         enc_xyz = [xyz]
-        enc_xyz2 = [xyz]
         enc_features_spa = [features[:, 3:, :]]
         enc_features_spe = [features[:, :3, :]]
 
@@ -117,12 +116,9 @@ class Dual_PointTransformerBackbone(PointTransformerBackbone):
             )
 
             enc_xyz.append(cur_xyz1)
-            enc_xyz2.append(cur_xyz2)
             enc_features_spa.append(cur_features_spa)
             enc_features_spe.append(cur_features_spe)
-        import pdb
 
-        pdb.set_trace()
         self_idx = self._knn_query(enc_xyz[1:])
 
         ret = dict(
