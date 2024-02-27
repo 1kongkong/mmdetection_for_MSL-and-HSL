@@ -16,11 +16,13 @@ from .kpfcnn import KPFCNNBackbone
 from .dual_kpfcnn import Dual_KPFCNNBackbone
 from .point_transformer import PointTransformerBackbone
 from .randlanet import RandLANetBackbone
+from .dual_point_transformer import Dual_PointTransformerBackbone
 
 __all__ = [
     'ResNet', 'ResNetV1d', 'ResNeXt', 'SSDVGG', 'HRNet', 'NoStemRegNet',
     'SECOND', 'DGCNNBackbone', 'PointNet2SASSG', 'PointNet2SAMSG',
     'MultiBackbone', 'DLANet', 'MinkResNet', 'Asymm3DSpconv',
     'MinkUNetBackbone', 'SPVCNNBackbone', 'MinkUNetBackboneV2',
-    'KPFCNNBackbone', 'Dual_KPFCNNBackbone', 'PointTransformerBackbone','RandLANetBackbone'
+    'KPFCNNBackbone', 'Dual_KPFCNNBackbone', 'PointTransformerBackbone','RandLANetBackbone',
+    "Dual_PointTransformerBackbone"
 ]

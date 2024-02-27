@@ -73,10 +73,14 @@ class PointTransformerHead(Base3DDecodeHead):
             Tuple[List[Tensor], List[Tensor]]: Coordinates and features of
             multiple levels of points.
         """
-        enc_xyz = feat_dict["enc_xyz"]
-        enc_features = feat_dict["enc_features"]
-        assert len(enc_xyz) == len(enc_features)
+        if feat_dict.get("enc_xyz", None) is not None:
+            enc_xyz = feat_dict["enc_xyz"]
+            enc_features = feat_dict["enc_features"]
+        else:
+            enc_xyz = feat_dict["points"]
+            enc_features = feat_dict["features"]
 
+        assert len(enc_xyz) == len(enc_features)
         return enc_xyz, enc_features
 
     def forward(self, feat_dict: dict) -> Tensor:
