@@ -5,7 +5,8 @@ model = dict(
     backbone=dict(
         type="Dual_KPFCNNBackbone",
         num_point=8192,
-        in_channels=6,  # [xyz, rgb], should be modified with dataset
+        in_channels_spa=2,  # [xyz, rgb], should be modified with dataset
+        in_channels_spe=3,
         kernel_size=15,
         k_neighbor=20,
         kpconv_channels=(
@@ -15,7 +16,8 @@ model = dict(
             (256, 256, 256),
             (512, 512),
         ),
-        weight_norm=False,
+        weight_norm_spa=False,
+        weight_norm_spe=True,
         norm_cfg=dict(type="BN1d"),
         act_cfg=dict(type="LeakyReLU", negative_slope=0.1),
     ),

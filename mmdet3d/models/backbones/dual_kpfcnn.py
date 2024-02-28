@@ -28,6 +28,7 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
         kernel_size: int,
         k_neighbor: int,
         kpconv_channels: List[List[int]],
+        spa_used: bool = False,
         sample_method: str = "rand",  # {'rand','grid','grid+rand'}
         query_method: str = "knn",  # {'knn','ball'}
         voxel_size: List[float] = None,
@@ -43,6 +44,7 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
             kernel_size=kernel_size,
             k_neighbor=k_neighbor,
             kpconv_channels=kpconv_channels,
+            spa_used=spa_used,
             sample_method=sample_method,
             query_method=query_method,
             voxel_size=voxel_size,
@@ -114,6 +116,7 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
         # print(length_downsample)
 
         idx_self, idx_downsample = self.query(points_downsample, length_downsample)
+        idx_self_neck, _ = self._knn_query(points_downsample, length_downsample)
 
         layer_num = 0
         feature_spa = features[:, 3:, :]
@@ -173,6 +176,6 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
             spa_feature=feature_spa_set,
             spe_feature=feature_spe_set,
             length=length_downsample,
-            self_index=idx_self,
+            self_index=idx_self_neck,
         )
         return out
