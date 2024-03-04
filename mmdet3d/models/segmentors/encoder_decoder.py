@@ -636,8 +636,11 @@ class EncoderDecoder3D(Base3DSegmentor):
 
         if self.test_cfg.get("voxel_size", None):
             grid_size = self.test_cfg.voxel_size
-        choice = self.voxel_sample(point[:, :3], grid_size)
-        point_sub = point[choice, :].contiguous()
+
+        shuffle_indexes = np.random.permutation(point.shape[0])
+        point_shuffle = point[shuffle_indexes, :]
+        choice = self.voxel_sample(point_shuffle[:, :3], grid_size)
+        point_sub = point_shuffle[choice, :].contiguous()
 
         # 创建映射索引
         tree = KDTree(point_sub[:, :3].cpu().numpy())
