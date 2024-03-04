@@ -80,18 +80,33 @@ class KPFCNNBackbone(BaseModule):
         for i in range(1, len(self.channel_list)):
             for j in range(len(self.channel_list[i])):
                 if j == 0:
-                    self.kpconvs.append(
-                        KPConvBlock(
-                            kernel_size,
-                            self.channel_list[i - 1][-1],
-                            self.channel_list[i][j],
-                            radius[i - 1] if radius else radius,
-                            k_neighbor,
-                            weight_norm,
-                            norm_cfg=norm_cfg,
-                            act_cfg=act_cfg,
+                    if i == 1:
+                        self.kpconvs.append(
+                            KPConvBlock(
+                                kernel_size,
+                                self.channel_list[i - 1][-1],
+                                self.channel_list[i][j],
+                                radius[i - 1] if radius else radius,
+                                k_neighbor,
+                                weight_norm,
+                                norm_cfg=norm_cfg,
+                                act_cfg=act_cfg,
+                            )
                         )
-                    )
+                    else:
+                        self.kpconvs.append(
+                            KPResNetBlock(
+                                kernel_size,
+                                self.channel_list[i - 1][-1],
+                                self.channel_list[i][j],
+                                radius[i - 1] if radius else radius,
+                                k_neighbor,
+                                weight_norm,
+                                strided=False,
+                                norm_cfg=norm_cfg,
+                                act_cfg=act_cfg,
+                            )
+                        )
                 else:
                     self.kpconvs.append(
                         KPResNetBlock(
@@ -282,7 +297,7 @@ class KPFCNNBackbone(BaseModule):
             idx_self.append(idx)
             if i != 0:
                 idx = ball_query(
-                    self.radius[i],
+                    self.radius[i - 1],
                     self.k_neighbor,
                     points[i - 1],
                     points[i],

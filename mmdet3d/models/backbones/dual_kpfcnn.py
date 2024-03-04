@@ -64,18 +64,33 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
             # self.fusions.append(cross_att_fusion_block_2(self.channel_list[i][-1]))
             for j in range(len(self.channel_list[i])):
                 if j == 0:
-                    self.kpconvs_1.append(
-                        KPConvBlock(
-                            kernel_size,
-                            self.channel_list[i - 1][-1],
-                            self.channel_list[i][j],
-                            radius[i - 1] if radius else radius,
-                            k_neighbor,
-                            weight_norm_spe,
-                            norm_cfg=norm_cfg,
-                            act_cfg=act_cfg,
+                    if i == 1:
+                        self.kpconvs_1.append(
+                            KPConvBlock(
+                                kernel_size,
+                                self.channel_list[i - 1][-1],
+                                self.channel_list[i][j],
+                                radius[i - 1] if radius else radius,
+                                k_neighbor,
+                                weight_norm_spe,
+                                norm_cfg=norm_cfg,
+                                act_cfg=act_cfg,
+                            )
                         )
-                    )
+                    else:
+                        self.kpconvs_1.append(
+                            KPResNetBlock(
+                                kernel_size,
+                                self.channel_list[i - 1][-1],
+                                self.channel_list[i][j],
+                                radius[i - 1] if radius else radius,
+                                k_neighbor,
+                                weight_norm_spe,
+                                strided=False,
+                                norm_cfg=norm_cfg,
+                                act_cfg=act_cfg,
+                            )
+                        )
                 else:
                     self.kpconvs_1.append(
                         KPResNetBlock(
