@@ -457,7 +457,7 @@ class CrossInterpolatePreP3(NNInterpolatePreP):
         self.spe_pred.append(features_spe.permute(0, 2, 1))
 
         # print("---SpectralAttention1---")
-        self_idx = knn(self.k + 1, xyz, xyz, self.patch_len, self.patch_len)
+        self_idx = knn(self.k, xyz, xyz, self.patch_len, self.patch_len)
         features_spe = self.CrossAttention1(
             xyz, features_spe, features_spe, self_idx[..., 1:]
         )
@@ -705,8 +705,7 @@ class SpatialAttention(nn.Module):
                 bias=True,
                 conv_cfg=dict(type="Conv2d"),
                 norm_cfg=dict(type="BN2d"),
-                # act_cfg=dict(type="ReLU"),
-                act_cfg=None,
+                act_cfg=dict(type="ReLU"),
             ),
             ConvModule(
                 3,
@@ -797,8 +796,7 @@ class SpectralAttention(nn.Module):
                 bias=True,
                 conv_cfg=dict(type="Conv2d"),
                 norm_cfg=dict(type="BN2d"),
-                # act_cfg=dict(type="ReLU"),
-                act_cfg=None,
+                act_cfg=dict(type="ReLU"),
             ),
             ConvModule(
                 output_dims + 3,
