@@ -2,8 +2,10 @@ from os import path as osp
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 import numpy as np
+from tqdm import tqdm
 
 from mmdet3d.registry import DATASETS
+from mmengine.fileio import get
 
 # from mmdet3d.structures import DepthInstance3DBoxes
 # from .det3d_dataset import Det3DDataset
@@ -12,7 +14,15 @@ from .seg3d_dataset import Seg3DDataset
 
 class _TitanSegDataset(Seg3DDataset):
     METAINFO = {
-        "classes": ("Impervious Ground", "Grass", "Building", "Tree", "Car", "Power Line", "Bare land"),
+        "classes": (
+            "Impervious Ground",
+            "Grass",
+            "Building",
+            "Tree",
+            "Car",
+            "Power Line",
+            "Bare land",
+        ),
         "seg_valid_class_ids": (0, 1, 2, 3, 4, 5, 6),
         "seg_all_class_ids": (0, 1, 2, 3, 4, 5, 6),
         "palette": [
@@ -31,7 +41,9 @@ class _TitanSegDataset(Seg3DDataset):
         data_root: Optional[str] = None,
         ann_file: str = "",
         metainfo: Optional[dict] = None,
-        data_prefix: dict = dict(pts="points", pts_instance_mask="", pts_semantic_mask=""),
+        data_prefix: dict = dict(
+            pts="points", pts_instance_mask="", pts_semantic_mask=""
+        ),
         pipeline: List[Union[dict, Callable]] = [],
         modality: dict = dict(use_lidar=True, use_camera=False),
         ignore_index: Optional[int] = None,
@@ -59,7 +71,9 @@ class _TitanSegDataset(Seg3DDataset):
         """
         # when testing, we load one whole scene every time
         if not self.test_mode and scene_idxs is None:
-            raise NotImplementedError("please provide re-sampled scene indexes for training")
+            raise NotImplementedError(
+                "please provide re-sampled scene indexes for training"
+            )
 
         return super().get_scene_idxs(scene_idxs)
 
@@ -110,13 +124,24 @@ class TitanSegDataset(_TitanSegDataset):
             )
             for i in range(len(ann_files))
         ]
-
+        self.load_dim = pipeline[0].load_dim
+        self.use_dim = pipeline[0].use_dim
+        if not self.test_mode:
+            self.data_dict = {}
         # data_list and scene_idxs need to be concat
         self.concat_data_list([dst.data_list for dst in datasets])
 
         # set group flag for the sampler
         if not self.test_mode:
             self._set_group_flag()
+
+    def loadPointFromPath(self):
+        for path in tqdm(self.data_dict.keys()):
+            pts_bytes = get(path)
+            points = np.frombuffer(pts_bytes, dtype=np.float32)
+            points = points.reshape(-1, self.load_dim)
+            points = points[:, self.use_dim]
+            self.data_dict[path] = points
 
     def concat_data_list(self, data_lists: List[List[dict]]) -> None:
         """Concat data_list from several datasets to form self.data_list.
@@ -125,14 +150,24 @@ class TitanSegDataset(_TitanSegDataset):
             data_lists (List[List[dict]]): List of dict containing
                 annotation information.
         """
-        self.data_list = [data for data_list in data_lists for data in data_list]
+        # self.data_list = [data for data_list in data_lists for data in data_list]
+        for data_list in data_lists:
+            for data in data_list:
+                self.data_list.append(data)
+                data_path = data["lidar_points"]["lidar_path"]
+                if not self.test_mode:
+                    self.data_dict[data_path] = None
+        if not self.test_mode:
+            self.loadPointFromPath()
 
     @staticmethod
     def _duplicate_to_list(x: Any, num: int) -> list:
         """Repeat x `num` times to form a list."""
         return [x for _ in range(num)]
 
-    def _check_ann_files(self, ann_file: Union[List[str], Tuple[str], str]) -> List[str]:
+    def _check_ann_files(
+        self, ann_file: Union[List[str], Tuple[str], str]
+    ) -> List[str]:
         """Make ann_files as list/tuple."""
         # ann_file could be str
         if not isinstance(ann_file, (list, tuple)):
@@ -140,7 +175,9 @@ class TitanSegDataset(_TitanSegDataset):
         return ann_file
 
     def _check_scene_idxs(
-        self, scene_idx: Union[str, List[Union[list, tuple, np.ndarray]], List[str], None], num: int
+        self,
+        scene_idx: Union[str, List[Union[list, tuple, np.ndarray]], List[str], None],
+        num: int,
     ) -> List[np.ndarray]:
         """Make scene_idxs as list/tuple."""
         if scene_idx is None:
