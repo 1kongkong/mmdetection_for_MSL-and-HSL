@@ -23,7 +23,7 @@ first_voxel_size = 0.4
 
 train_pipeline = [
     dict(
-        type="LoadPointsFromFile",
+        type="LoadPointsFromDict",
         coord_type="DEPTH",
         shift_height=False,
         use_color=True,
@@ -40,7 +40,6 @@ train_pipeline = [
         backend_args=backend_args,
     ),
     dict(type="PointSegClassMapping"),
-    dict(type="PointShuffle"),
     dict(
         type="IndoorPatchPointSample",
         num_points=num_points,
@@ -57,6 +56,7 @@ train_pipeline = [
         rot_range=[-3.14159264, 3.14159264],
         scale_ratio_range=[0.95, 1.05],
     ),
+    dict(type="PointShuffle"),
     dict(type="Pack3DDetInputs", keys=["points", "pts_semantic_mask"]),
 ]
 # model settings
