@@ -1432,6 +1432,10 @@ class IndoorPatchPointSample(BaseTransform):
             )
             # get idx
             voxel_indices = np.sum(voxel_indices * voxel_nums, axis=1)
+            shuffle_indexes = np.random.permutation(voxel_indices.shape[0])
+            voxel_indices = voxel_indices[shuffle_indexes]
+            point_idxs = point_idxs[shuffle_indexes]
+
             # down sample
             unique_indices = np.unique(voxel_indices)
             choices[voxel_indices] = point_idxs
