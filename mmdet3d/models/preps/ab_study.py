@@ -324,6 +324,34 @@ class spa_spe2(NNInterpolatePreP):
 
 
 @MODELS.register_module()
+class spa_spe2_noloss(spa_spe2):
+    def __init__(
+        self,
+        k,
+        init_cfg=None,
+    ):
+        super(spa_spe2_noloss, self).__init__(k=k, init_cfg=init_cfg)
+
+    def loss(self):
+        return None
+
+@MODELS.register_module()
+class spa_spe2_nogaussian(spa_spe2):
+    def __init__(
+        self,
+        k,
+        init_cfg=None,
+    ):
+        super(spa_spe2_nogaussian, self).__init__(k=k, init_cfg=init_cfg)
+        self.k = k
+        self.SpatialAttention1 = SpatialAttention(False)
+        self.SpatialAttention2 = SpatialAttention(False)
+        self.SpatialAttention3 = SpatialAttention(False)
+
+        self.CrossAttention1 = SpectralAttention(3, 3, False)
+        self.CrossAttention2 = SpectralAttention(3, 3, False)
+
+@MODELS.register_module()
 class spa_spe3(NNInterpolatePreP):
     def __init__(
         self,
@@ -569,7 +597,7 @@ class spa_spe4(NNInterpolatePreP):
 
 
 class SpatialAttention(nn.Module):
-    def __init__(self):
+    def __init__(self, gaussian=True):
         super(SpatialAttention, self).__init__()
 
         self.linear_p = nn.Sequential(
@@ -594,6 +622,7 @@ class SpatialAttention(nn.Module):
             ),
         )
         self.softmax = nn.Softmax(dim=-1)
+        self.gaussian = gaussian
 
     def forward(self, xyz, intensity, indices):
         """
@@ -610,7 +639,10 @@ class SpatialAttention(nn.Module):
         i_neighbor = gather(intensity, indices, True)
 
         pos = xyz_neighbor - xyz.permute(0, 2, 1).unsqueeze(-1)  # B 3 N K
-        pos_gaussian = torch.exp(-2 * (pos) ** 2)
+        if self.gaussian:
+            pos_gaussian = torch.exp(-2 * (pos) ** 2)
+        else:
+            pos_gaussian = pos
         # print(f"pos:{pos[0,:,0,:]}")
         # print(f"pos_dist:{torch.sum(pos[0,:,0,:]**2,dim=0,keepdim=True)}")
         w = self.linear_p(pos_gaussian)  # B,C,N,K
@@ -632,7 +664,7 @@ class SpatialAttention(nn.Module):
 
 
 class SpectralAttention(nn.Module):
-    def __init__(self, input_dims, output_dims):
+    def __init__(self, input_dims, output_dims, gaussian=True):
         super(SpectralAttention, self).__init__()
         self.linear_q = ConvModule(
             input_dims,
@@ -685,6 +717,7 @@ class SpectralAttention(nn.Module):
             ),
         )
         self.softmax = nn.Softmax(dim=-1)
+        self.gaussian = gaussian
 
     def forward(self, xyz, features, intensity, indices):
         """
@@ -706,12 +739,18 @@ class SpectralAttention(nn.Module):
         k_neighbor = gather(k, indices, True)
 
         feat = k_neighbor - q.unsqueeze(-1)
-        feat_gaussian = torch.exp(-2 * (feat) ** 2)
+        if self.gaussian:
+            feat_gaussian = torch.exp(-2 * (feat) ** 2)
+        else:
+            feat_gaussian = feat
         # print(f"feat:{feat[0,:,0,:]}")
         # print(f"feat_dist:{torch.sum(feat[0,:,0,:]**2,dim=0,keepdim=True)}")
 
         pos = xyz_neighbor - xyz.permute(0, 2, 1).unsqueeze(-1)  # B 3 N K
-        pos_gaussian = torch.exp(-2 * (pos) ** 2)
+        if self.gaussian:
+            pos_gaussian = torch.exp(-2 * (pos) ** 2)
+        else:
+            pos_gaussian = pos
         # print(f"pos:{pos[0,:,0,:]}")
         # print(f"pos_dist:{torch.sum(pos[0,:,0,:]**2,dim=0,keepdim=True)}")
 
