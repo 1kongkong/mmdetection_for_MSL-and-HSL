@@ -23,7 +23,7 @@ first_voxel_size = 0.4
 
 train_pipeline = [
     dict(
-        type="LoadPointsFromFile",
+        type="LoadPointsFromDict",
         coord_type="DEPTH",
         shift_height=False,
         use_color=True,
@@ -77,7 +77,7 @@ model = dict(
     neck=dict(
         type="VectorCrossAttentionNeck",
         input_dims=(32, 64, 128, 256, 512),
-        share_planes=(2, 2, 4, 8, 8),
+        share_planes=(2, 2, 4, 4, 4),
     ),
     decode_head=dict(
         num_classes=len(class_names),

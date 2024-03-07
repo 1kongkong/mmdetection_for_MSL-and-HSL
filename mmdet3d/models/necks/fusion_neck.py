@@ -55,6 +55,87 @@ class VectorCrossAttentionNeck(BaseModule):
         return inputs
 
 
+@MODELS.register_module()
+class ConcatNeck(BaseModule):
+    def __init__(self, input_dims):
+        """
+        Args:
+            input_dims(List):
+            share_planes(List):
+        """
+        super(ConcatNeck, self).__init__()
+        self.input_dims = input_dims
+
+    def _extract_feature(self, inputs):
+        coord = inputs["points"]
+        spa_feat = inputs.pop("spa_feature")
+        spe_feat = inputs.pop("spe_feature")
+        neighbor_indices = inputs["self_index"]
+
+        return coord, spa_feat, spe_feat, neighbor_indices
+
+    def forward(self, inputs):
+        """
+        coord: [B,N,3]
+        spa: [B,C,N]
+        spe: [B,C,N]
+        """
+        coord, spa, spe, neighbor_indices = self._extract_feature(inputs)
+        fusion_feature = []
+
+        for i in range(len(self.input_dims)):
+            fusion_feature.append(torch.cat([spa[i], spe[i]], dim=1))
+        inputs["features"] = fusion_feature
+
+        return inputs
+
+
+@MODELS.register_module()
+class VectorSelfAttentionNeck(BaseModule):
+    def __init__(self, input_dims, share_planes):
+        """
+        Args:
+            input_dims(List):
+            share_planes(List):
+        """
+        super(VectorSelfAttentionNeck, self).__init__()
+        assert len(input_dims) == len(share_planes)
+        self.input_dims = input_dims
+        self.spa_MHA = nn.ModuleList()
+        self.spe_MHA = nn.ModuleList()
+
+        for i in range(len(input_dims)):
+            self.spa_MHA.append(PointTransformerLayer(input_dims[i], share_planes[i]))
+            self.spe_MHA.append(PointTransformerLayer(input_dims[i], share_planes[i]))
+
+    def _extract_feature(self, inputs):
+        coord = inputs["points"]
+        spa_feat = inputs.pop("spa_feature")
+        spe_feat = inputs.pop("spe_feature")
+        neighbor_indices = inputs["self_index"]
+
+        return coord, spa_feat, spe_feat, neighbor_indices
+
+    def forward(self, inputs):
+        """
+        coord: [B,N,3]
+        spa: [B,C,N]
+        spe: [B,C,N]
+        """
+        coord, spa, spe, neighbor_indices = self._extract_feature(inputs)
+        fusion_feature = []
+
+        for i in range(len(self.input_dims)):
+            spa_feature = self.spa_MHA[i](coord[i], spa[i], spa[i], neighbor_indices[i])
+            spe_feature = self.spe_MHA[i](coord[i], spe[i], spe[i], neighbor_indices[i])
+            spa_feature = spa[i] + spa_feature
+            spe_feature = spe[i] + spe_feature
+            fusion_feature.append(torch.cat([spa_feature, spe_feature], dim=1))
+        inputs["features"] = fusion_feature
+
+        return inputs
+
+
 class PointTransformerLayer(nn.Module):
     def __init__(self, in_planes, share_planes=4):
         super().__init__()

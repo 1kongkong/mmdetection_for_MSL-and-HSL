@@ -79,7 +79,8 @@ class Dual_PointTransformerBackbone(PointTransformerBackbone):
         self_idx = []
 
         for i, xyz in enumerate(points):
-            idx = knn(self.num_samples[i], xyz, xyz)
+            # idx = knn(self.num_samples[i], xyz, xyz)
+            idx = knn(16, xyz, xyz)
             self_idx.append(idx)
 
         return self_idx

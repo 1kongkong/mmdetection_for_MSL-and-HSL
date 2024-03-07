@@ -6,6 +6,7 @@ from torch import nn as nn
 import copy
 
 from mmdet3d.registry import MODELS
+from my_tools.knn import knn
 
 from mmdet3d.utils import ConfigType
 from ..layers.kpconv_modules.kpconv import KPConvBlock, KPResNetBlock
@@ -108,6 +109,30 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
                         )
                     )
 
+    def _neck_knn_query(self, points, length=None):
+        """
+        Args:
+            points (List[Tensor,]): ((B,N,3),...)
+            length (List[Tensor,]): ((l1,l2,...),(l1,l2,...))
+        Returns:
+            idx_self (List[Tensor,]): ((B,npoint,k))
+            idx_downsample (List[Tensor,]): ((B,npoint,k))
+        """
+        idx_neck = []
+        for i in range(len(points)):
+            idx = knn(
+                20,
+                points[i],
+                points[i],
+                length[i] if "grid" in self.sample_method else None,
+                length[i] if "grid" in self.sample_method else None,
+            )
+            if "grid" in self.sample_method:
+                idx.unsqueeze(0).contiguous()
+            idx_neck.append(idx)
+
+        return idx_neck
+
     def forward(self, inputs) -> Tuple[Tensor]:
         """
         Args:
@@ -131,7 +156,7 @@ class Dual_KPFCNNBackbone(KPFCNNBackbone):
         # print(length_downsample)
 
         idx_self, idx_downsample = self.query(points_downsample, length_downsample)
-        idx_self_neck, _ = self._knn_query(points_downsample, length_downsample)
+        idx_self_neck = self._neck_knn_query(points_downsample, length_downsample)
 
         layer_num = 0
         feature_spa = features[:, 3:, :]
