@@ -21,7 +21,7 @@ block_size = 30
 backend_args = None
 train_pipeline = [
     dict(
-        type="LoadPointsFromFile",
+        type="LoadPointsFromDict",
         coord_type="DEPTH",
         shift_height=False,
         use_color=True,
@@ -60,7 +60,7 @@ train_pipeline = [
 model = dict(
     type="PreP_EncoderDecoder3D",
     prep=dict(
-        type="CrossInterpolatePreP3",
+        type="spa_spe2",
         k=6,
     ),
     backbone=dict(
