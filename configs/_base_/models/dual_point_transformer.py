@@ -19,7 +19,7 @@ model = dict(
     neck=dict(
         type="VectorCrossAttentionNeck",
         input_dims=(16, 32, 64, 128, 256),
-        share_planes=(2, 2, 4, 8, 8),
+        # share_planes=(2, 2, 4, 8, 8),
     ),
     decode_head=dict(
         type="PointTransformerHead",

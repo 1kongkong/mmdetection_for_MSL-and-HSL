@@ -7,7 +7,7 @@ model = dict(
         num_point=8192,
         in_channels=6,  # [xyz, rgb], should be modified with dataset
         kernel_size=15,
-        k_neighbor=20,
+        k_neighbor=16,
         kpconv_channels=(
             (32, 64, 64),
             (128, 128, 128),
