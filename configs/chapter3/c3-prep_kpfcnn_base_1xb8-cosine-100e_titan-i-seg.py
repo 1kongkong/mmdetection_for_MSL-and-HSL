@@ -40,7 +40,6 @@ train_pipeline = [
         backend_args=backend_args,
     ),
     dict(type="PointSegClassMapping"),
-    dict(type="PointShuffle"),
     dict(
         type="IndoorPatchPointSample",
         num_points=num_points,
@@ -57,6 +56,7 @@ train_pipeline = [
         rot_range=[-3.14159264, 3.14159264],
         scale_ratio_range=[0.95, 1.05],
     ),
+    dict(type="PointShuffle"),
     dict(type="Pack3DDetInputs", keys=["points", "pts_semantic_mask"]),
 ]
 # model settings
@@ -67,8 +67,9 @@ model = dict(
         k=6,
     ),
     backbone=dict(
-        in_channels=5,
+        in_channels=6,
         weight_norm=False,
+        spa_used=True,
         voxel_size=[0.8, 1.6, 3.2, 6.4],
         radius=[1.0, 2.0, 4.0, 8.0, 16.0],
         sample_method="grid",
@@ -119,11 +120,11 @@ default_hooks = dict(
 )
 
 # 混合精度训练
-optim_wrapper = dict(
-    type="AmpOptimWrapper",
-    loss_scale="dynamic",
-    optimizer=dict(type="AdamW", lr=0.001, weight_decay=0.001, betas=(0.95, 0.99)),
-    clip_grad=None,
-)
+# optim_wrapper = dict(
+#     type="AmpOptimWrapper",
+#     loss_scale="dynamic",
+#     optimizer=dict(type="AdamW", lr=0.001, weight_decay=0.001, betas=(0.95, 0.99)),
+#     clip_grad=None,
+# )
 
 train_cfg = dict(by_epoch=True, max_epochs=100, val_interval=2)
