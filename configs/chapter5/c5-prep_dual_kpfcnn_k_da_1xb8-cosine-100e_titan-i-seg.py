@@ -23,7 +23,7 @@ first_voxel_size = 0.4
 
 train_pipeline = [
     dict(
-        type="LoadPointsFromFile",
+        type="LoadPointsFromDict",
         coord_type="DEPTH",
         shift_height=False,
         use_color=True,
@@ -40,7 +40,6 @@ train_pipeline = [
         backend_args=backend_args,
     ),
     dict(type="PointSegClassMapping"),
-    dict(type="PointShuffle"),
     dict(
         type="IndoorPatchPointSample",
         num_points=num_points,
@@ -57,20 +56,22 @@ train_pipeline = [
         rot_range=[-3.14159264, 3.14159264],
         scale_ratio_range=[0.95, 1.05],
     ),
+    dict(type="PointShuffle"),
     dict(type="Pack3DDetInputs", keys=["points", "pts_semantic_mask"]),
 ]
 # model settings
 model = dict(
     type="PreP_EncoderDecoder3D",
     prep=dict(
-        type="CrossInterpolatePreP3",
+        type="spa_spe3",
         k=6,
     ),
     backbone=dict(
-        in_channels_spa=4,
+        in_channels_spa=3,
         in_channels_spe=3,
         weight_norm_spa=True,
         weight_norm_spe=True,
+        k_neighbor=32,
         spa_used=True,
         voxel_size=[0.8, 1.6, 3.2, 6.4],
         sample_method="grid",
@@ -81,7 +82,7 @@ model = dict(
     neck=dict(
         type="VectorCrossAttentionNeck",
         input_dims=(32, 64, 128, 256, 512),
-        share_planes=(2, 2, 4, 8, 8),
+        share_planes=(2, 2, 4, 4, 8),
     ),
     decode_head=dict(
         num_classes=len(class_names),
@@ -128,6 +129,11 @@ optim_wrapper = dict(
     optimizer=dict(type="AdamW", lr=0.001, weight_decay=0.001, betas=(0.95, 0.99)),
     clip_grad=None,
 )
+# param_scheduler = [
+#     dict(
+#         type="CosineAnnealingLR", T_max=80, eta_min=1e-4, by_epoch=True, begin=0, end=80
+#     )
+# ]
 # optim_wrapper = dict(
 #     type="OptimWrapper",
 #     optimizer=dict(type="AdamW", lr=0.001, weight_decay=0.001, betas=(0.95, 0.99)),
